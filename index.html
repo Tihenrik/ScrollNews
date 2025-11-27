@@ -2,126 +2,120 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart News LED Scroll</title>
-<style>
-    body{
-        margin:0;
-        font-family: Arial, sans-serif;
-        background:#111;
-        color:white;
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:flex-start;
-        height:100vh;
-        gap:15px;
-        padding:15px;
-    }
-    h2{ margin:0; font-size:clamp(18px,4vw,28px); }
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>LED News Scroller</title>
 
-    .panel{
-        width:100%;
-        max-width:900px;
-        background:#222;
-        padding:15px;
-        border-radius:12px;
-        display:flex;
-        flex-wrap:wrap;
-        gap:10px;
+<style>
+    body {
+        margin: 0;
+        background: #111;
+        color: white;
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
     }
-    select,input{
-        flex:1;
-        min-width:120px;
-        padding:10px;
-        border-radius:8px;
-        border:none;
-        font-size:clamp(14px,3vw,18px);
-        outline:none;
+
+    header {
+        padding: 10px;
+        background: #1c1c1c;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        border-bottom: 2px solid #333;
     }
-    #screen{
-        width:100%;
-        overflow:hidden;
-        white-space:nowrap;
-        border-radius:12px;
-        padding:20px;
-        font-weight:bold;
-        font-size:40px;
-        display:flex;
-        align-items:center;
+
+    select, input[type="color"], input[type="range"] {
+        padding: 6px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: none;
+        outline: none;
     }
+    .viewer {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        white-space: nowrap;
+        position: relative;
+    }
+
+    #scrollText {
+        white-space: nowrap;
+        position: absolute;
+        animation: scroll linear infinite;
+    }
+
     @keyframes scroll {
-        0% { transform:translateX(100%); }
-        100% { transform:translateX(-100%); }
-    }
-    #text{
-        display:inline-block;
+        from { transform: translateX(100%); }
+        to { transform: translateX(-100%); }
     }
 </style>
 </head>
 <body>
 
-<h2>🟢 LED News Scroller</h2>
-
-<div class="panel">
-    <select id="tema">
-        <option value="brasil">🇧🇷 Notícias Nacionais</option>
-        <option value="mundo">🌍 Notícias Internacionais</option>
-        <option value="esportes">🏆 Esportes</option>
-        <option value="economia">💰 Economia</option>
-        <option value="misto">🔀 Misto Geral</option>
-        <option value="hora">⏰ Data & Hora</option>
+<header>
+    <select id="categoria">
+        <option value="general">Misto (Geral)</option>
+        <option value="technology">Tecnologia</option>
+        <option value="sports">Esportes</option>
+        <option value="business">Economia</option>
+        <option value="science">Ciência</option>
+        <option value="health">Saúde</option>
     </select>
 
-    <input type="color" id="corTexto" value="#00ff00">
-    <input type="color" id="corFundo" value="#000000">
-    <input type="range" id="velocidade" min="5" max="60" value="20">
-    <input type="range" id="tamanho" min="18" max="120" value="40">
+    <input type="color" id="corTexto" value="#00ff00" title="Cor do texto">
+    <input type="color" id="corFundo" value="#000000" title="Cor do fundo">
+    <input type="range" id="velocidade" min="5" max="60" value="20" title="Velocidade">
+    <input type="range" id="tamanho" min="16" max="90" value="40" title="Tamanho da fonte">
+</header>
+
+<div class="viewer" id="viewer">
+    <span id="scrollText">Carregando notícias...</span>
 </div>
 
-<div id="screen"><span id="text">Carregando...</span></div>
-
 <script>
-async function buscarNoticias(tema){
-    const fontes = {
-        brasil:"https://api.allorigins.win/raw?url=https://g1.globo.com/rss/g1",
-        mundo:"https://api.allorigins.win/raw?url=https://www.bbc.com/portuguese/index.xml",
-        esportes:"https://api.allorigins.win/raw?url=https://ge.globo.com/rss/ge",
-        economia:"https://api.allorigins.win/raw?url=https://valor.globo.com/rss/",
-        misto:"https://api.allorigins.win/raw?url=https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419"
-    };
+const key = "SUA_API_KEY_AQUI"; // <── coloque sua KEY da NewsAPI.org
+const texto = document.getElementById("scrollText");
+const viewer = document.getElementById("viewer");
 
-    if(tema === "hora"){
-        return setInterval(()=>atualizarTexto(new Date().toLocaleString()),1000);
+async function carregarNoticias(){
+    const categoria = document.getElementById("categoria").value;
+    const url = `https://newsapi.org/v2/top-headlines?country=br&category=${categoria}&apiKey=${key}`;
+
+    try{
+        const res = await fetch(url);
+        const data = await res.json();
+
+        let manchetes = data.articles.map(n => n.title).join("   ✦   ");
+        texto.textContent = manchetes || "Nenhuma notícia encontrada";
+        atualizarEstilos();
+    }catch{
+        texto.textContent = "Erro ao carregar notícias.";
     }
-
-    clearInterval();
-    let rss = await fetch(fontes[tema]).then(r=>r.text());
-    let itens = [...rss.matchAll(/<title>(.*?)<\/title>/g)].slice(1,10).map(x=>x[1]);
-    atualizarTexto(itens.join("  ⚡  "));
 }
 
-function atualizarTexto(txt){
-    const t = document.getElementById("text");
-    t.innerText = txt;
-    t.style.animation = `scroll ${60/velocidade.value}s linear infinite`;
+function atualizarEstilos(){
+    texto.style.color = document.getElementById("corTexto").value;
+    viewer.style.background = document.getElementById("corFundo").value;
+    texto.style.fontSize = document.getElementById("tamanho").value + "px";
+
+    const vel = document.getElementById("velocidade").value;
+    texto.style.animationDuration = (80 / vel) + "s"; // mais suave e proporcional
 }
 
-function aplicarEstilo(){
-    text.style.color = corTexto.value;
-    screen.style.background = corFundo.value;
-    text.style.fontSize = tamanho.value+"px";
-    text.style.animationDuration = 60/velocidade.value+"s";
-}
+document.querySelectorAll("select,input").forEach(el =>
+    el.addEventListener("input", atualizarEstilos)
+);
 
-tema.onchange=()=>buscarNoticias(tema.value);
-corTexto.oninput=aplicarEstilo;
-corFundo.oninput=aplicarEstilo;
-velocidade.oninput=aplicarEstilo;
-tamanho.oninput=aplicarEstilo;
+document.getElementById("categoria").addEventListener("change", carregarNoticias);
 
-buscarNoticias("brasil");
-aplicarEstilo();
+// Atualiza auto a cada 5min
+setInterval(carregarNoticias, 300000);
+carregarNoticias();
 </script>
+
 </body>
 </html>
