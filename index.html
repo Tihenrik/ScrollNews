@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ScrollNews Master</title>
+    <title>ScrollNews</title>
     
-    <!-- Tailwind CSS (via CDN para estilo rápido e bonito) -->
+    <!-- Tailwind CSS (Estilo rápido) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Ícones Lucide -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Reset e Fontes */
+        /* --- ESTILOS GERAIS --- */
         body {
             margin: 0;
             overflow: hidden;
             background-color: #000;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            user-select: none; /* Impede seleção de texto para visual de TV */
+            user-select: none; /* Visual de TV (sem seleção de texto) */
         }
 
-        /* O Scroller Infinito */
+        /* --- ENGINE DO SCROLL --- */
         #scroller-container {
             position: absolute;
             top: 50%;
@@ -32,14 +32,14 @@
             display: flex;
             align-items: center;
             overflow: hidden;
-            transition: width 0.5s, height 0.5s, transform 0.5s;
+            transition: width 0.5s, height 0.5s, transform 0.5s; /* Transição suave ao girar */
         }
 
         #scroller-track {
             display: flex;
             align-items: center;
             white-space: nowrap;
-            will-change: transform; /* Otimização de GPU */
+            will-change: transform; /* Aceleração de Hardware */
         }
 
         .news-item {
@@ -47,12 +47,12 @@
             align-items: center;
         }
 
-        /* Menu Lateral */
+        /* --- MENU LATERAL --- */
         #settings-panel {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        /* Utilitários de Slider Customizado */
+        /* --- CUSTOMIZAÇÃO DE SLIDERS --- */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -65,6 +65,7 @@
             background: #ffffff;
             cursor: pointer;
             margin-top: -6px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
         }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
@@ -74,7 +75,7 @@
             border-radius: 2px;
         }
         
-        /* Classes para Rotação de Tela via Software */
+        /* --- CLASSE PARA MODO ROTAÇÃO (MOBILE VERTICAL USADO COMO HORIZONTAL) --- */
         .rotated-mode {
             width: 100vh !important;
             height: 100vw !important;
@@ -86,17 +87,16 @@
 
     <!-- ================= CONTEÚDO PRINCIPAL ================= -->
     
-    <!-- O Container que gira e segura o texto -->
     <div id="scroller-container">
-        <!-- A trilha que se move -->
+        <!-- A trilha que se move (Track) -->
         <div id="scroller-track">
-            <!-- O conteúdo será injetado aqui via JavaScript -->
+            <!-- Conteúdo injetado via JS -->
         </div>
     </div>
 
-    <!-- Botão de Abrir Configurações -->
-    <button id="btn-open-settings" class="fixed bottom-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md shadow-lg border border-white/10 transition-transform hover:scale-110">
-        <i data-lucide="settings"></i>
+    <!-- Botão Flutuante (Settings) -->
+    <button id="btn-open-settings" class="fixed bottom-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md shadow-lg border border-white/10 transition-transform hover:scale-110 group">
+        <i data-lucide="settings" class="group-hover:rotate-90 transition-transform duration-500"></i>
     </button>
 
     <!-- ================= PAINEL DE CONTROLE ================= -->
@@ -112,8 +112,8 @@
             </button>
         </div>
 
-        <!-- Scroll Content -->
-        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+        <!-- Conteúdo Scrollável -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
             
             <!-- Controles de Tela -->
             <div class="grid grid-cols-2 gap-3">
@@ -132,22 +132,21 @@
                 <h3 class="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
                     <i data-lucide="globe" class="w-3 h-3"></i> Fontes
                 </h3>
-                <!-- Checkboxes gerados dinamicamente ou estáticos -->
-                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50">
+                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50 border border-transparent hover:border-white/10 transition-all">
                     <span class="text-xs font-medium">Nacional</span>
-                    <input type="checkbox" id="check-nacional" checked class="accent-blue-500 w-4 h-4">
+                    <input type="checkbox" id="check-nacional" checked class="accent-blue-500 w-4 h-4 rounded">
                 </label>
-                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50">
+                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50 border border-transparent hover:border-white/10 transition-all">
                     <span class="text-xs font-medium">Internacional</span>
-                    <input type="checkbox" id="check-internacional" class="accent-blue-500 w-4 h-4">
+                    <input type="checkbox" id="check-internacional" class="accent-blue-500 w-4 h-4 rounded">
                 </label>
-                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50">
+                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50 border border-transparent hover:border-white/10 transition-all">
                     <span class="text-xs font-medium">Esportes</span>
-                    <input type="checkbox" id="check-esportes" checked class="accent-blue-500 w-4 h-4">
+                    <input type="checkbox" id="check-esportes" checked class="accent-blue-500 w-4 h-4 rounded">
                 </label>
-                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50">
-                    <span class="text-xs font-medium text-yellow-400">Data e Hora</span>
-                    <input type="checkbox" id="check-tempo" checked class="accent-yellow-400 w-4 h-4">
+                <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 bg-zinc-800/50 border border-transparent hover:border-white/10 transition-all">
+                    <span class="text-xs font-medium text-yellow-400 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Data e Hora</span>
+                    <input type="checkbox" id="check-tempo" checked class="accent-yellow-400 w-4 h-4 rounded">
                 </label>
             </section>
 
@@ -163,52 +162,48 @@
             <!-- Aparência -->
             <section class="space-y-4">
                 <h3 class="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
-                    <i data-lucide="palette" class="w-3 h-3"></i> Aparência
+                    <i data-lucide="palette" class="w-3 h-3"></i> Estilo
                 </h3>
                 
                 <div class="grid grid-cols-3 gap-2">
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] text-gray-500 font-bold uppercase">Fundo</label>
-                        <input type="color" id="color-bg" value="#000000" class="w-full h-8 rounded cursor-pointer">
+                        <input type="color" id="color-bg" value="#000000" class="w-full h-8 rounded cursor-pointer border border-white/20">
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] text-gray-500 font-bold uppercase">Texto</label>
-                        <input type="color" id="color-text" value="#ffffff" class="w-full h-8 rounded cursor-pointer">
+                        <input type="color" id="color-text" value="#ffffff" class="w-full h-8 rounded cursor-pointer border border-white/20">
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] text-gray-500 font-bold uppercase">Separador</label>
-                        <input type="color" id="color-separator" value="#ff0000" class="w-full h-8 rounded cursor-pointer">
+                        <input type="color" id="color-separator" value="#ff0000" class="w-full h-8 rounded cursor-pointer border border-white/20">
                     </div>
                 </div>
 
                 <div>
                     <div class="flex justify-between text-[10px] text-gray-500 font-bold uppercase mb-1">
-                        <span>Tamanho Fonte</span>
+                        <span>Tamanho da Fonte</span>
+                        <span id="fontsize-display" class="text-blue-400">10vh</span>
                     </div>
-                    <input type="range" id="input-fontsize" min="2" max="30" step="0.5" value="10" class="w-full accent-white">
-                </div>
-
-                <div>
-                    <label class="text-[10px] text-gray-500 font-bold uppercase">Texto Separador</label>
-                    <input type="text" id="input-sep-text" value="ScrollNews" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white mt-1 outline-none focus:border-blue-500">
+                    <input type="range" id="input-fontsize" min="2" max="35" step="0.5" value="10" class="w-full accent-white">
                 </div>
                 
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="check-uppercase" checked class="accent-blue-500 w-4 h-4">
-                    <span class="text-xs text-gray-400">CAIXA ALTA</span>
+                <label class="flex items-center gap-2 pt-2 border-t border-white/5">
+                    <input type="checkbox" id="check-uppercase" checked class="accent-blue-500 w-4 h-4 rounded">
+                    <span class="text-xs text-gray-400">TEXTO EM CAIXA ALTA</span>
                 </label>
             </section>
         </div>
 
         <!-- Footer -->
         <div class="p-4 border-t border-white/10 bg-black/20">
-            <button id="btn-refresh" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded flex items-center justify-center gap-2 transition-colors">
-                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Atualizar Notícias
+            <button id="btn-refresh" class="w-full py-3 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs font-bold rounded flex items-center justify-center gap-2 transition-all">
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Forçar Atualização
             </button>
         </div>
     </div>
 
-    <!-- ================= LÓGICA JAVASCRIPT ================= -->
+    <!-- ================= ENGINE JAVASCRIPT ================= -->
     <script>
         // Inicializa ícones
         lucide.createIcons();
@@ -221,67 +216,56 @@
                 esportes: 'https://ge.globo.com/rss/ge/',
                 variados: 'https://rss.uol.com.br/feed/tecnologia.xml'
             },
-            news: [], // Array de strings (manchetes)
+            news: [], 
             currentDateStr: '',
             
             // Configs Visuais
-            speed: 2.0, // Pixels por frame
+            speed: 2.0, 
             pos: 0,
             bgColor: '#000000',
             textColor: '#ffffff',
             sepColor: '#ff0000',
-            sepText: 'ScrollNews',
-            fontSize: 10, // vh
+            sepText: 'ScrollNews', // FIXO
+            fontSize: 10, 
             isUppercase: true,
-            
-            // Flags
-            isRotated: false,
-            isFullscreen: false
+            isRotated: false
         };
 
-        // --- ELEMENTOS DOM ---
+        // --- ELEMENTOS ---
         const track = document.getElementById('scroller-track');
         const container = document.getElementById('scroller-container');
         const settingsPanel = document.getElementById('settings-panel');
         
-        // --- 1. ENGINE DE ANIMAÇÃO (Animation Loop) ---
+        // --- ENGINE DE ANIMAÇÃO (Smooth Loop) ---
         function animate() {
-            // Move a posição
             state.pos -= state.speed;
             
-            // Lógica de Loop Infinito
-            // O conteúdo é duplicado (Set A + Set B). Quando Set A sai da tela, resetamos para 0.
-            // Precisamos saber a largura da METADE do conteúdo total.
             const totalWidth = track.scrollWidth;
             const singleSetWidth = totalWidth / 2;
 
+            // Se o primeiro set saiu da tela, teletransporta para 0 (reset imperceptível)
             if (singleSetWidth > 0 && state.pos <= -singleSetWidth) {
-                state.pos += singleSetWidth; // Ajuste suave sem pular para 0 bruscamente se speed for alta
-                if (state.pos <= -singleSetWidth) state.pos = 0; // Fallback
+                state.pos += singleSetWidth; 
+                if (state.pos <= -singleSetWidth) state.pos = 0; // Segurança
             }
 
-            // Aplica transformação
             track.style.transform = `translate3d(${state.pos}px, 0, 0)`;
-
             requestAnimationFrame(animate);
         }
 
-        // --- 2. RENDERIZAÇÃO DOM ---
+        // --- RENDERIZADOR ---
         function renderContent() {
-            // Monta lista final
             let items = [];
             
-            // Adiciona Data/Hora se ativo
             if (document.getElementById('check-tempo').checked) {
                 items.push(state.currentDateStr);
             }
             
-            // Adiciona Notícias
             items = items.concat(state.news);
 
-            if (items.length === 0) items = ["Selecione categorias no menu..."];
+            if (items.length === 0) items = ["Bem-vindo ao ScrollNews - Aguardando conexão..."];
 
-            // Helper para criar HTML de um item
+            // Template String do HTML do Item
             const createItemHTML = (text) => `
                 <div class="news-item">
                     <span style="
@@ -306,45 +290,40 @@
                 </div>
             `;
 
-            // Gera HTML para Set A
             const setA = items.map(createItemHTML).join('');
-            // Gera HTML para Set B (Duplicata para loop)
-            const setB = items.map(createItemHTML).join('');
+            const setB = items.map(createItemHTML).join(''); // Cópia para Loop
 
-            // Injeta no DOM
             track.innerHTML = setA + setB;
         }
 
-        // --- 3. RELÓGIO E DATA ---
+        // --- RELÓGIO E DATA ---
         function updateTime() {
             const now = new Date();
             const dateOpts = { weekday: 'long', day: 'numeric', month: 'long' };
             const timeOpts = { hour: '2-digit', minute: '2-digit' };
-            state.currentDateStr = `${now.toLocaleDateString('pt-BR', dateOpts)} • ${now.toLocaleTimeString('pt-BR', timeOpts)}`;
+            // Capitaliza a primeira letra do dia da semana
+            let dateString = now.toLocaleDateString('pt-BR', dateOpts);
+            dateString = dateString.charAt(0).toUpperCase() + dateString.slice(1);
             
-            // Se não tiver notícias e só relógio, precisamos re-renderizar para atualizar o segundo
-            // Mas para performance, idealmente atualizamos só o texto, porém aqui vamos simplificar:
-            // Se a lista de notícias for pequena ou vazia, re-renderizar é ok.
-            // Para não quebrar o layout durante a digitação de settings, vamos atualizar somente se necessário
-            // ou via timer separado. Por simplicidade neste single-file, faremos update via timer
+            state.currentDateStr = `${dateString} • ${now.toLocaleTimeString('pt-BR', timeOpts)}`;
         }
         
-        // Atualiza a string de tempo a cada segundo e se não houver noticias, força render
+        // Atualiza relógio
         setInterval(() => {
-            const oldTime = state.currentDateStr;
             updateTime();
-            // Se estiver mostrando tempo, atualiza o DOM específico do tempo seria o ideal,
-            // mas vamos re-renderizar tudo a cada minuto ou se news estiver vazio
-            if (state.news.length === 0 || new Date().getSeconds() === 0) {
+            // Atualiza o DOM a cada segundo APENAS se não houver notícias (modo relógio)
+            // ou a cada minuto para atualizar a hora no meio das notícias
+            const now = new Date();
+            if (state.news.length === 0 || now.getSeconds() === 0) {
                 renderContent();
             }
         }, 1000);
 
-        // --- 4. BUSCA DE NOTÍCIAS (RSS) ---
+        // --- RSS FETCHING ---
         async function fetchNews() {
             const btn = document.getElementById('btn-refresh');
             const originalText = btn.innerHTML;
-            btn.innerHTML = 'Carregando...';
+            btn.innerHTML = '<i data-lucide="loader" class="animate-spin w-3 h-3"></i> Buscando...';
             btn.disabled = true;
 
             let allHeadlines = [];
@@ -365,69 +344,66 @@
             const results = await Promise.all(promises);
             results.forEach(titles => allHeadlines = [...allHeadlines, ...titles]);
 
-            // Limpa e filtra
             state.news = [...new Set(allHeadlines)]
-                .map(t => t.replace(/<[^>]*>?/gm, '').trim())
-                .slice(0, 30); // Limite 30
+                .map(t => t.replace(/<[^>]*>?/gm, '').trim()) // Remove HTML tags
+                .slice(0, 30); // Max 30 notícias
 
             renderContent();
             
             btn.innerHTML = originalText;
             btn.disabled = false;
+            lucide.createIcons(); // Recria ícone do botão
         }
 
-        // --- 5. EVENTOS E UI ---
-        
-        // Toggle Settings
+        // --- UI INTERACTION ---
         const btnOpen = document.getElementById('btn-open-settings');
         const btnClose = document.getElementById('btn-close-settings');
         
         btnOpen.addEventListener('click', () => {
             settingsPanel.classList.remove('translate-x-full');
-            btnOpen.classList.add('opacity-0', 'pointer-events-none');
+            btnOpen.classList.add('translate-x-20', 'opacity-0'); // Esconde botão
         });
         
         btnClose.addEventListener('click', () => {
             settingsPanel.classList.add('translate-x-full');
-            btnOpen.classList.remove('opacity-0', 'pointer-events-none');
+            btnOpen.classList.remove('translate-x-20', 'opacity-0'); // Mostra botão
         });
 
-        // Inputs de Aparência (Live Update)
+        // Estilos em Tempo Real
         const updateStyle = () => {
             state.bgColor = document.getElementById('color-bg').value;
             state.textColor = document.getElementById('color-text').value;
             state.sepColor = document.getElementById('color-separator').value;
             state.fontSize = document.getElementById('input-fontsize').value;
-            state.sepText = document.getElementById('input-sep-text').value;
             state.isUppercase = document.getElementById('check-uppercase').checked;
             
+            // Atualiza displays de valor
+            document.getElementById('fontsize-display').innerText = state.fontSize + 'vh';
+            
             document.body.style.backgroundColor = state.bgColor;
-            renderContent(); // Re-renderiza para aplicar tamanhos e cores inline
+            renderContent();
         };
 
-        ['color-bg', 'color-text', 'color-separator', 'input-fontsize', 'input-sep-text', 'check-uppercase'].forEach(id => {
+        ['color-bg', 'color-text', 'color-separator', 'input-fontsize', 'check-uppercase'].forEach(id => {
             document.getElementById(id).addEventListener('input', updateStyle);
         });
 
-        // Speed Control (Não precisa re-renderizar DOM, só muda var)
+        // Velocidade (Separado pois não exige re-render)
         const speedInput = document.getElementById('input-speed');
-        const speedDisplay = document.getElementById('speed-display');
         speedInput.addEventListener('input', (e) => {
             state.speed = parseFloat(e.target.value);
-            speedDisplay.innerText = state.speed.toFixed(1) + 'x';
+            document.getElementById('speed-display').innerText = state.speed.toFixed(1) + 'x';
         });
 
-        // Checkboxes de Tópicos
+        // Tópicos
         ['check-nacional', 'check-internacional', 'check-esportes'].forEach(id => {
             document.getElementById(id).addEventListener('change', fetchNews);
         });
-        
         document.getElementById('check-tempo').addEventListener('change', renderContent);
 
-        // Botão Atualizar
+        // Ações Botões
         document.getElementById('btn-refresh').addEventListener('click', fetchNews);
 
-        // Fullscreen
         document.getElementById('btn-fullscreen').addEventListener('click', () => {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
@@ -436,7 +412,6 @@
             }
         });
 
-        // Rotação (Software)
         document.getElementById('btn-rotate').addEventListener('click', () => {
             state.isRotated = !state.isRotated;
             if (state.isRotated) {
@@ -446,13 +421,14 @@
             }
         });
 
-        // --- INICIALIZAÇÃO ---
+        // --- INIT ---
         updateTime();
-        fetchNews();     // Busca notícias iniciais
-        updateStyle();   // Aplica estilos iniciais
-        animate();       // Inicia loop de animação
+        fetchNews();
+        updateStyle();
+        animate();
 
     </script>
 </body>
 </html>
+
 
