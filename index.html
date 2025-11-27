@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart News LED Scroll</title>
+<style>
+    body{
+        margin:0;
+        font-family: Arial, sans-serif;
+        background:#111;
+        color:white;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:flex-start;
+        height:100vh;
+        gap:15px;
+        padding:15px;
+    }
+    h2{ margin:0; font-size:clamp(18px,4vw,28px); }
+
+    .panel{
+        width:100%;
+        max-width:900px;
+        background:#222;
+        padding:15px;
+        border-radius:12px;
+        display:flex;
+        flex-wrap:wrap;
+        gap:10px;
+    }
+    select,input{
+        flex:1;
+        min-width:120px;
+        padding:10px;
+        border-radius:8px;
+        border:none;
+        font-size:clamp(14px,3vw,18px);
+        outline:none;
+    }
+    #screen{
+        width:100%;
+        overflow:hidden;
+        white-space:nowrap;
+        border-radius:12px;
+        padding:20px;
+        font-weight:bold;
+        font-size:40px;
+        display:flex;
+        align-items:center;
+    }
+    @keyframes scroll {
+        0% { transform:translateX(100%); }
+        100% { transform:translateX(-100%); }
+    }
+    #text{
+        display:inline-block;
+    }
+</style>
+</head>
+<body>
+
+<h2>🟢 LED News Scroller</h2>
+
+<div class="panel">
+    <select id="tema">
+        <option value="brasil">🇧🇷 Notícias Nacionais</option>
+        <option value="mundo">🌍 Notícias Internacionais</option>
+        <option value="esportes">🏆 Esportes</option>
+        <option value="economia">💰 Economia</option>
+        <option value="misto">🔀 Misto Geral</option>
+        <option value="hora">⏰ Data & Hora</option>
+    </select>
+
+    <input type="color" id="corTexto" value="#00ff00">
+    <input type="color" id="corFundo" value="#000000">
+    <input type="range" id="velocidade" min="5" max="60" value="20">
+    <input type="range" id="tamanho" min="18" max="120" value="40">
+</div>
+
+<div id="screen"><span id="text">Carregando...</span></div>
+
+<script>
+async function buscarNoticias(tema){
+    const fontes = {
+        brasil:"https://api.allorigins.win/raw?url=https://g1.globo.com/rss/g1",
+        mundo:"https://api.allorigins.win/raw?url=https://www.bbc.com/portuguese/index.xml",
+        esportes:"https://api.allorigins.win/raw?url=https://ge.globo.com/rss/ge",
+        economia:"https://api.allorigins.win/raw?url=https://valor.globo.com/rss/",
+        misto:"https://api.allorigins.win/raw?url=https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419"
+    };
+
+    if(tema === "hora"){
+        return setInterval(()=>atualizarTexto(new Date().toLocaleString()),1000);
+    }
+
+    clearInterval();
+    let rss = await fetch(fontes[tema]).then(r=>r.text());
+    let itens = [...rss.matchAll(/<title>(.*?)<\/title>/g)].slice(1,10).map(x=>x[1]);
+    atualizarTexto(itens.join("  ⚡  "));
+}
+
+function atualizarTexto(txt){
+    const t = document.getElementById("text");
+    t.innerText = txt;
+    t.style.animation = `scroll ${60/velocidade.value}s linear infinite`;
+}
+
+function aplicarEstilo(){
+    text.style.color = corTexto.value;
+    screen.style.background = corFundo.value;
+    text.style.fontSize = tamanho.value+"px";
+    text.style.animationDuration = 60/velocidade.value+"s";
+}
+
+tema.onchange=()=>buscarNoticias(tema.value);
+corTexto.oninput=aplicarEstilo;
+corFundo.oninput=aplicarEstilo;
+velocidade.oninput=aplicarEstilo;
+tamanho.oninput=aplicarEstilo;
+
+buscarNoticias("brasil");
+aplicarEstilo();
+</script>
+</body>
+</html>
