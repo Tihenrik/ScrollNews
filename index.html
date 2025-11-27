@@ -1,123 +1,522 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>LED News Scroller</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LED Scroller PRO — News • Clima • Câmbio • Relógio</title>
+
+<!-- Google font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-    body {
-        margin: 0;
-        background: #000;
-        color: white;
-        font-family: Arial, sans-serif;
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-    }
+  :root{
+    --bg: #040406;
+    --panel: rgba(255,255,255,0.03);
+    --accent: #06b6d4;
+    --led: #00ff88;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6f0ff;background:
+    radial-gradient(1200px 600px at 10% 10%, rgba(6,182,212,0.06), transparent 8%),
+    linear-gradient(180deg,#02030a 0%, #061026 100%);}
 
-    header {
-        padding: 10px;
-        background: #0a0a0a;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        justify-content: center;
-        border-bottom: 2px solid #111;
-    }
+  .app {
+    max-width:1200px;
+    margin:18px auto;
+    border-radius:14px;
+    overflow:hidden;
+    display:grid;
+    grid-template-columns: 1fr 360px;
+    gap:0;
+    min-height:70vh;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    box-shadow: 0 10px 40px rgba(2,6,23,0.7);
+    border: 1px solid rgba(255,255,255,0.03);
+  }
 
-    select, input[type="color"], input[type="range"] {
-        padding: 8px;
-        font-size: 15px;
-        border-radius: 6px;
-        border: none;
-        background: #1c1c1c;
-        color: white;
-    }
+  /* LEFT: scroller & header */
+  .left { padding:20px; display:flex; flex-direction:column; gap:14px; }
+  .brand { display:flex; gap:12px; align-items:center; }
+  .logo { width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#3b82f6); display:flex;align-items:center;justify-content:center;font-weight:700;color:#012;box-shadow:0 8px 30px rgba(6,182,212,0.12);}
+  .title h1{ margin:0;font-size:18px;}
+  .title p{ margin:0;color:#9fb2d0;font-size:13px; }
 
-    .viewer {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        overflow: hidden;
-        white-space: nowrap;
-        position: relative;
-    }
+  .scroller-card {
+    border-radius:12px;
+    background:var(--panel);
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
 
-    #scrollText {
-        white-space: nowrap;
-        position: absolute;
-        animation: scroll linear infinite;
-        font-weight: bold;
-        text-shadow: 0 0 10px currentColor;
-    }
+  /* LED preview */
+  .preview {
+    height: clamp(56px, 15vw, 120px);
+    min-height:56px;
+    border-radius:10px;
+    position:relative;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.03);
+    display:flex;
+    align-items:center;
+    padding-left:12px;
+  }
 
-    @keyframes scroll {
-        from { transform: translateX(100%); }
-        to { transform: translateX(-100%); }
-    }
+  /* led text */
+  .led {
+    white-space:nowrap;
+    display:inline-block;
+    will-change:transform;
+    font-weight:700;
+    font-size: clamp(18px,3.6vw,40px);
+    letter-spacing:0.6px;
+    color: var(--led);
+    text-shadow:
+      0 0 8px rgba(0,255,136,0.25),
+      0 0 18px rgba(0,255,136,0.15),
+      0 6px 12px rgba(2,6,23,0.6);
+    transform: translateX(0);
+  }
+
+  .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .control { display:flex; flex-direction:column; gap:6px; min-width:120px; }
+  label.small { font-size:12px;color:#98b0cf; }
+
+  select,input[type="color"], input[type="number"], input[type="text"]{
+    padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:rgba(255,255,255,0.02);color:inherit;
+  }
+  input[type="range"]{ width:180px; }
+
+  .btn { background:linear-gradient(180deg,#0f2338,#082033); color:#eaf6ff; padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;font-weight:600 }
+  .btn.ghost{ background:transparent;border:1px dashed rgba(255,255,255,0.04) }
+
+  /* RIGHT: settings */
+  .right { padding:18px; border-left:1px solid rgba(255,255,255,0.02); background: linear-gradient(180deg, rgba(255,255,255,0.005), transparent); display:flex; flex-direction:column; gap:12px; }
+  .panel { background:transparent; border-radius:10px; padding:8px; display:flex; flex-direction:column; gap:10px; }
+
+  .small-muted { font-size:13px;color:#8aa4cc; }
+
+  .meta-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .flex-1 { flex:1; min-width:120px; }
+
+  footer { padding:12px 18px; font-size:13px; color:#8fa7cc; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+
+  /* responsive */
+  @media (max-width:980px){
+    .app { grid-template-columns: 1fr; }
+    .right { order:2; }
+  }
 </style>
 </head>
 <body>
 
-<header>
-    <select id="categoria">
-        <option value="general">Misto (Geral)</option>
-        <option value="technology">Tecnologia</option>
-        <option value="sports">Esportes</option>
-        <option value="business">Economia</option>
-        <option value="science">Ciência</option>
-        <option value="health">Saúde</option>
-    </select>
+<div class="app" id="app">
+  <div class="left">
+    <div class="brand">
+      <div class="logo">LED</div>
+      <div class="title">
+        <h1>LED Scroller PRO</h1>
+        <p>Notícias • Clima • Câmbio • Data/Hora — totalmente responsivo</p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn" id="btn-full">Tela cheia</button>
+        <button class="btn" id="btn-refresh">Atualizar</button>
+        <button class="btn" id="btn-play">Pausar</button>
+      </div>
+    </div>
 
-    <input type="color" id="corTexto" value="#00ff00" title="Cor do texto">
-    <input type="color" id="corFundo" value="#000000" title="Cor do fundo">
-    <input type="range" id="velocidade" min="5" max="60" value="20" title="Velocidade">
-    <input type="range" id="tamanho" min="16" max="90" value="45" title="Tamanho do texto">
-</header>
+    <div class="scroller-card">
+      <div class="preview" id="preview" style="background:var(--bg);">
+        <div id="ledText" class="led">Carregando conteúdo...</div>
+      </div>
 
-<div class="viewer" id="viewer">
-    <span id="scrollText">Carregando notícias...</span>
+      <div class="controls">
+        <div class="control">
+          <label class="small">Tema</label>
+          <select id="theme" class="flex-1">
+            <option value="br">🇧🇷 Nacionais (BR)</option>
+            <option value="world">🌍 Internacionais</option>
+            <option value="sports">🏆 Esportes</option>
+            <option value="business">💼 Economia</option>
+            <option value="mixed">🔀 Misto</option>
+            <option value="datetime">⏰ Data & Hora</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label class="small">Fonte (API)</label>
+          <select id="apiSource">
+            <option value="newsapi">NewsAPI (recomendado)</option>
+            <option value="rss">RSS público (sem chave)</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label class="small">Velocidade (px/s)</label>
+          <input id="speed" type="range" min="40" max="500" value="120">
+        </div>
+
+        <div class="control">
+          <label class="small">Tamanho (px)</label>
+          <input id="fontSize" type="range" min="14" max="80" value="34">
+        </div>
+
+        <div class="control">
+          <label class="small">Cor (texto)</label>
+          <input id="textColor" type="color" value="#00ff88">
+        </div>
+
+        <div class="control">
+          <label class="small">Cor (fundo)</label>
+          <input id="bgColor" type="color" value="#040406">
+        </div>
+
+        <div class="control">
+          <label class="small">Intervalo atualização (min)</label>
+          <input id="interval" type="number" min="0" max="1440" value="5">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="small-muted">Status:</div>
+        <div id="status" class="small-muted">pronto</div>
+        <div style="margin-left:auto" class="small-muted">Última: <span id="lastUpdate">—</span></div>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <div class="panel small-muted" style="flex:1">
+        <div style="font-weight:600">Clima</div>
+        <div id="weather">Carregando clima...</div>
+      </div>
+
+      <div class="panel small-muted" style="width:260px">
+        <div style="font-weight:600">Câmbio</div>
+        <div id="exchange">Carregando câmbio...</div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="right">
+    <div class="panel">
+      <div style="font-weight:700">Configurar NewsAPI (opcional)</div>
+      <div class="small-muted">Se quiser usar NewsAPI cole sua chave aqui (recomendado usar proxy em produção).</div>
+      <input id="newsApiKey" type="text" placeholder="Cole sua NewsAPI key aqui">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" id="saveKey">Salvar</button>
+        <button class="btn ghost" id="clearKey">Remover</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:700">Preview de Manchetes</div>
+      <div id="headlinesPreview" class="small-muted">—</div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:700">Observações / Segurança</div>
+      <div class="small-muted">
+        • Chaves colocadas diretamente no HTML/navegador ficam públicas. Para produção, use um backend/proxy.<br>
+        • Clima usa Open-Meteo (sem chave).<br>
+        • Câmbio usa exchangerate.host (sem chave).<br>
+        • Fallback RSS usa allorigins.win para evitar CORS.
+      </div>
+    </div>
+
+    <div style="margin-top:auto" class="small-muted">LED Scroller PRO • by you</div>
+  </aside>
 </div>
 
+<footer>
+  <div class="small-muted">Dica: no celular permita "Localização" para clima mais preciso.</div>
+  <div class="small-muted">Quer exportar configurações? Peça "exportar config".</div>
+</footer>
+
 <script>
-const key = "5fbaa4278d9d4d999e7a3fea5e57c91f"; // ← SUA KEY
-const texto = document.getElementById("scrollText");
-const viewer = document.getElementById("viewer");
+/* -------------------------
+   PRO LED Scroller - main
+   ------------------------- */
 
-async function carregarNoticias(){
-    const categoria = document.getElementById("categoria").value;
-    const url = `https://newsapi.org/v2/top-headlines?country=br&category=${categoria}&apiKey=${key}`;
+const ledText = document.getElementById('ledText');
+const preview = document.getElementById('preview');
+const themeEl = document.getElementById('theme');
+const apiSourceEl = document.getElementById('apiSource');
+const speedEl = document.getElementById('speed');
+const fontSizeEl = document.getElementById('fontSize');
+const textColorEl = document.getElementById('textColor');
+const bgColorEl = document.getElementById('bgColor');
+const intervalEl = document.getElementById('interval');
+const btnPlay = document.getElementById('btn-play');
+const btnRefresh = document.getElementById('btn-refresh');
+const btnFull = document.getElementById('btn-full');
+const statusEl = document.getElementById('status');
+const lastUpdateEl = document.getElementById('lastUpdate');
+const headlinesPreview = document.getElementById('headlinesPreview');
+const newsApiKeyInput = document.getElementById('newsApiKey');
+const saveKeyBtn = document.getElementById('saveKey');
+const clearKeyBtn = document.getElementById('clearKey');
+const weatherEl = document.getElementById('weather');
+const exchangeEl = document.getElementById('exchange');
 
-    try{
-        const res = await fetch(url);
-        const data = await res.json();
-        let noticias = data.articles.map(n => n.title).join("   ✦   ");
+let playing = true;
+let autoTimer = null;
+let apiKey = localStorage.getItem('led_news_api_key') || '';
+newsApiKeyInput.value = apiKey;
 
-        texto.textContent = noticias || "Nenhuma notícia encontrada";
-        atualizarEstilos();
-    }catch(e){
-        texto.textContent = "Erro ao carregar notícias.";
+// ---------- helpers ----------
+function setStatus(s){ statusEl.textContent = s; }
+function setLastUpdate(){ lastUpdateEl.textContent = new Date().toLocaleString(); }
+function saveSettings(){
+  const cfg = {
+    theme: themeEl.value,
+    source: apiSourceEl.value,
+    speed: speedEl.value,
+    fontSize: fontSizeEl.value,
+    textColor: textColorEl.value,
+    bgColor: bgColorEl.value,
+    interval: intervalEl.value
+  };
+  localStorage.setItem('led_cfg_v1', JSON.stringify(cfg));
+}
+function loadSettings(){
+  const raw = localStorage.getItem('led_cfg_v1');
+  if(!raw) return;
+  try{
+    const cfg = JSON.parse(raw);
+    themeEl.value = cfg.theme || themeEl.value;
+    apiSourceEl.value = cfg.source || apiSourceEl.value;
+    speedEl.value = cfg.speed || speedEl.value;
+    fontSizeEl.value = cfg.fontSize || fontSizeEl.value;
+    textColorEl.value = cfg.textColor || textColorEl.value;
+    bgColorEl.value = cfg.bgColor || bgColorEl.value;
+    intervalEl.value = cfg.interval || intervalEl.value;
+  }catch(e){}
+}
+
+// restore settings
+loadSettings();
+applyVisuals();
+
+// ---------- visual & animation logic ----------
+let raf = null;
+let animStart = null;
+let animDuration = 10;
+let startX = 0;
+let endX = 0;
+
+function applyVisuals(){
+  // colors & sizes
+  ledText.style.color = textColorEl.value;
+  preview.style.background = bgColorEl.value;
+  ledText.style.fontSize = fontSizeEl.value + 'px';
+  saveSettings();
+  // recalc animation
+  computeAnimation();
+}
+
+function computeAnimation(){
+  cancelAnimation();
+  // measure
+  requestAnimationFrame(()=> {
+    const containerW = preview.clientWidth;
+    const contentW = ledText.scrollWidth;
+    const speedPxPerSec = Number(speedEl.value) || 120;
+    const distance = contentW + containerW;
+    animDuration = Math.max(1, distance / Math.max(1, speedPxPerSec));
+    startX = containerW;
+    endX = -contentW;
+    startLoop();
+  });
+}
+
+function startLoop(){
+  if(!playing) return;
+  animStart = null;
+  function frame(ts){
+    if(!animStart) animStart = ts;
+    const elapsed = ((ts - animStart)/1000) % animDuration;
+    const t = elapsed / animDuration; // 0..1
+    const x = startX + (endX - startX) * t;
+    ledText.style.transform = `translateX(${x}px)`;
+    raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
+}
+
+function cancelAnimation(){ if(raf) cancelAnimationFrame(raf); raf = null; animStart = null; }
+
+// ---------- data fetching ----------
+async function fetchHeadlines(){
+  const theme = themeEl.value;
+  const source = apiSourceEl.value;
+  setStatus('buscando...');
+  try{
+    if(theme === 'datetime'){
+      const now = new Date().toLocaleString();
+      return [now];
     }
+
+    if(source === 'newsapi' && apiKey){
+      // use NewsAPI top-headlines; country=br for national
+      let url = 'https://newsapi.org/v2/top-headlines?pageSize=12&apiKey=' + encodeURIComponent(apiKey);
+      if(theme === 'br') url += '&country=br';
+      if(theme === 'sports') url += '&category=sports';
+      if(theme === 'business') url += '&category=business';
+      if(theme === 'world') url = 'https://newsapi.org/v2/top-headlines?language=pt&pageSize=12&apiKey=' + encodeURIComponent(apiKey);
+      if(theme === 'mixed') url += '&country=br';
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('API news error ' + res.status);
+      const json = await res.json();
+      const arr = (json.articles || []).map(a => a.title).filter(Boolean);
+      setStatus('carregado (NewsAPI)');
+      return arr.length ? arr : ['Sem manchetes retornadas'];
+    }
+
+    // fallback: RSS public via allorigins (evita CORS)
+    // sites chosen by theme (can be customized)
+    const rssMap = {
+      br: 'https://g1.globo.com/rss/g1/',
+      world: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+      sports: 'https://ge.globo.com/rss/g1/',
+      business: 'https://valor.globo.com/rss/',
+      mixed: 'https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419'
+    };
+    const rssUrl = rssMap[theme] || rssMap.mixed;
+    // allorigins raw: https://api.allorigins.win/raw?url={rssUrl}
+    const proxy = 'https://api.allorigins.win/raw?url=';
+    const resp = await fetch(proxy + encodeURIComponent(rssUrl));
+    if(!resp.ok) throw new Error('RSS fetch error '+resp.status);
+    const txt = await resp.text();
+    // parse titles with regex <title> (skip the channel title)
+    const titles = [];
+    let m;
+    const re = /<title>(.*?)<\/title>/gi;
+    while((m = re.exec(txt)) && titles.length < 12){
+      const t = m[1].replace(/<[^>]+>/g,'').trim();
+      if(t && !/rss|feed|g1/i.test(t)) titles.push(t);
+    }
+    setStatus('carregado (RSS)');
+    return titles.length ? titles : ['Sem resultados via RSS'];
+  }catch(err){
+    console.error('fetchHeadlines', err);
+    setStatus('erro ao buscar');
+    return [`Erro: ${err.message}`];
+  }
 }
 
-function atualizarEstilos(){
-    texto.style.color = document.getElementById("corTexto").value;
-    viewer.style.background = document.getElementById("corFundo").value;
-    texto.style.fontSize = document.getElementById("tamanho").value + "px";
-
-    let vel = document.getElementById("velocidade").value;
-    texto.style.animationDuration = (90 / vel) + "s"; 
+async function refreshOnce(){
+  setStatus('atualizando...');
+  const headlines = await fetchHeadlines();
+  // combine headlines to a single string
+  const text = headlines.join('  ⸺  ');
+  ledText.textContent = text;
+  headlinesPreview.textContent = headlines.slice(0,6).join(' • ');
+  setLastUpdate();
+  applyVisuals();
 }
 
-document.querySelectorAll("select,input").forEach(i =>
-    i.addEventListener("input", atualizarEstilos)
-);
+// ---------- extra data: weather & exchange ----------
+async function fetchExchange(){
+  try{
+    const res = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=BRL');
+    const j = await res.json();
+    if(j && j.rates && j.rates.BRL){
+      exchangeEl.textContent = `1 USD = ${j.rates.BRL.toFixed(4)} BRL (exchangerate.host)`;
+    } else exchangeEl.textContent = 'Câmbio indisponível';
+  }catch(e){
+    exchangeEl.textContent = 'Erro ao carregar câmbio';
+  }
+}
 
-document.getElementById("categoria").addEventListener("change", carregarNoticias);
-setInterval(carregarNoticias, 300000); // Atualiza a cada 5min
-carregarNoticias();
+async function fetchWeather(){
+  try{
+    weatherEl.textContent = 'obtendo localização...';
+    const pos = await new Promise((res,rej)=>{
+      if(!navigator.geolocation) return rej('Geo não suportada');
+      navigator.geolocation.getCurrentPosition(p => res(p), err => rej(err));
+    });
+    const lat = pos.coords.latitude.toFixed(4);
+    const lon = pos.coords.longitude.toFixed(4);
+    // Open-Meteo: https://open-meteo.com/
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
+    const r = await fetch(url);
+    const j = await r.json();
+    if(j && j.current_weather){
+      const cw = j.current_weather;
+      weatherEl.textContent = `${cw.temperature}°C — vento ${cw.windspeed} km/h — (lat:${lat}, lon:${lon})`;
+    } else weatherEl.textContent = 'Clima indisponível';
+  }catch(e){
+    weatherEl.textContent = 'Clima: sem permissão / erro';
+  }
+}
+
+// ---------- controls wiring ----------
+speedEl.addEventListener('input', ()=>{ applyVisuals(); computeAnimation(); });
+fontSizeEl.addEventListener('input', ()=>{ applyVisuals(); computeAnimation(); });
+textColorEl.addEventListener('input', applyVisuals);
+bgColorEl.addEventListener('input', applyVisuals);
+themeEl.addEventListener('change', ()=>{ refreshOnce(); scheduleAutoRefresh(); });
+apiSourceEl.addEventListener('change', ()=>{ refreshOnce(); });
+btnRefresh.addEventListener('click', async ()=>{ await refreshOnce(); });
+btnPlay.addEventListener('click', ()=>{
+  playing = !playing;
+  btnPlay.textContent = playing ? 'Pausar' : 'Retomar';
+  if(playing) computeAnimation(); else cancelAnimation();
+});
+btnFull.addEventListener('click', ()=> {
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen();
+});
+
+// API key save
+saveKeyBtn.addEventListener('click', ()=>{
+  apiKey = newsApiKeyInput.value.trim();
+  if(apiKey) {
+    localStorage.setItem('led_news_api_key', apiKey);
+    setStatus('API key salva');
+  } else {
+    setStatus('Key vazia, nada salvo');
+  }
+});
+clearKeyBtn.addEventListener('click', ()=> {
+  apiKey = '';
+  newsApiKeyInput.value = '';
+  localStorage.removeItem('led_news_api_key');
+  setStatus('API key removida');
+});
+
+// ---------- auto refresh ----------
+function scheduleAutoRefresh(){
+  if(autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  const mins = Number(intervalEl.value) || 0;
+  if(mins > 0) autoTimer = setInterval(refreshOnce, mins*60*1000);
+}
+
+intervalEl.addEventListener('change', scheduleAutoRefresh);
+
+// ---------- init ----------
+async function init(){
+  apiKey = localStorage.getItem('led_news_api_key') || '';
+  newsApiKeyInput.value = apiKey;
+  applyVisuals();
+  await refreshOnce();
+  fetchExchange();
+  fetchWeather();
+  scheduleAutoRefresh();
+}
+init();
+
+// reflow on resize
+let resizeTimer;
+window.addEventListener('resize', ()=> {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(()=> computeAnimation(),120);
+});
+
+// cleanup on unload
+window.addEventListener('beforeunload', ()=> { if(autoTimer) clearInterval(autoTimer); cancelAnimation(); });
+
 </script>
-
 </body>
 </html>
