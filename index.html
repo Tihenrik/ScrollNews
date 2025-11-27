@@ -1,102 +1,337 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>LED Scroller PRO</title>
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  Settings, X, Maximize, Minimize, RefreshCw, 
+  Globe, Calendar, Type, Zap, Palette, Monitor, Smartphone
+} from 'lucide-react';
 
-<style>
-    body{
-        margin:0; background:#000; color:#fff; font-family:Arial;
-        display:flex; flex-direction:column; height:100vh;
-    }
-    header{
-        display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-        padding:10px; background:#0c0c0c; border-bottom:2px solid #111;
-    }
-    select,input{ padding:8px;border-radius:6px;border:none;background:#1c1c1c;color:#fff;font-size:15px;}
-    
-    #display{
-        flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden;
-        white-space:nowrap; position:relative;
-    }
-    #texto{
-        position:absolute; white-space:nowrap; text-shadow:0 0 12px currentColor;
-        animation:scroll 15s linear infinite;
-    }
-
-    @keyframes scroll{ from{transform:translateX(100%)} to{transform:translateX(-100%)} }
-
-</style>
-</head>
-<body>
-
-<header>
-    <select id="categoria">
-        <option value="br">🇧🇷 Notícias Brasil</option>
-        <option value="world">🌍 Notícias Mundo</option>
-        <option value="economy">💰 Economia</option>
-        <option value="sports">🏆 Esportes</option>
-        <option value="technology">💻 Tecnologia</option>
-        <option value="science">🔬 Ciência</option>
-        <option value="hora">🕒 Hora / Data</option>
-    </select>
-
-    <input type="color" id="corTexto" value="#00ff00">
-    <input type="color" id="corFundo" value="#000000">
-    <input type="range" id="velocidade" min="5" max="80" value="25">
-    <input type="range" id="tamanho" min="20" max="100" value="60">
-</header>
-
-<div id="display">
-    <span id="texto">Carregando...</span>
-</div>
-
-<script>
-const texto = document.getElementById("texto");
-const display = document.getElementById("display");
-
-// 🔥 Feeds RSS convertidos em JSON prontos sem API Key
-const fontes = {
-    br:      "https://gnews.io/api/v4/top-headlines?category=general&lang=pt&country=br&apikey=demo",
-    world:   "https://gnews.io/api/v4/top-headlines?category=world&lang=pt&apikey=demo",
-    sports:  "https://gnews.io/api/v4/top-headlines?category=sports&lang=pt&apikey=demo",
-    economy: "https://gnews.io/api/v4/top-headlines?category=business&lang=pt&apikey=demo",
-    technology:"https://gnews.io/api/v4/top-headlines?category=technology&lang=pt&apikey=demo",
-    science: "https://gnews.io/api/v4/top-headlines?category=science&lang=pt&apikey=demo"
+// --- CONFIGURAÇÃO DOS FEEDS ---
+const FEEDS = {
+  nacional: { url: 'https://g1.globo.com/rss/g1/', label: 'Nacional' },
+  internacional: { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', label: 'Internacional' },
+  esporte: { url: 'https://ge.globo.com/rss/ge/', label: 'Esportes' },
+  variados: { url: 'https://rss.uol.com.br/feed/tecnologia.xml', label: 'Variedades/Tech' },
 };
 
-async function atualizar(){
-    let cat = document.getElementById("categoria").value;
+export default function ScrollNewsMaster() {
+  // --- ESTADOS DE DADOS ---
+  const [news, setNews] = useState([]);
+  const [dateTime, setDateTime] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  // --- ESTADOS DE UI ---
+  const [showMenu, setShowMenu] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isRotated, setIsRotated] = useState(false);
 
-    if(cat==="hora"){
-        setInterval(()=>texto.textContent=new Date().toLocaleString(),1000);
-        return;
+  // --- CONFIGURAÇÕES ---
+  const [topics, setTopics] = useState({
+    nacional: true,
+    internacional: false,
+    esporte: true,
+    variados: false,
+    dataHora: true
+  });
+
+  const [style, setStyle] = useState({
+    speed: 2, // Pixels por frame (Controle JS preciso)
+    fontSize: 8, // vh
+    bgColor: '#000000',
+    textColor: '#ffffff',
+    separatorColor: '#ff0000',
+    separatorText: 'ScrollNews',
+    fontFamily: 'sans-serif',
+    uppercase: true
+  });
+
+  // --- REF PARA O SCROLLER (ENGINE JS) ---
+  const scrollerRef = useRef(null);
+  const contentRef = useRef(null);
+  const posRef = useRef(0);
+  const requestRef = useRef();
+
+  // --- 1. ENGINE DE ANIMAÇÃO (O CORAÇÃO DA VELOCIDADE) ---
+  const animate = useCallback(() => {
+    if (!scrollerRef.current || !contentRef.current) return;
+
+    // Move a posição baseada na velocidade
+    posRef.current -= style.speed;
+
+    // Detecta o tamanho do conteúdo
+    const contentWidth = contentRef.current.offsetWidth / 2; // Dividido por 2 pois duplicamos o conteúdo
+
+    // Loop infinito matemático (sem pulos)
+    if (posRef.current <= -contentWidth) {
+      posRef.current = 0;
     }
 
-    try{
-        const r = await fetch(fontes[cat]);
-        const j = await r.json();
-        texto.textContent = j.articles.map(a=>a.title).join("  ✦  ");
-    }catch{
-        texto.textContent = "Erro ao obter notícias.";
+    // Aplica o movimento
+    scrollerRef.current.style.transform = `translate3d(${posRef.current}px, 0, 0)`;
+    
+    requestRef.current = requestAnimationFrame(animate);
+  }, [style.speed]);
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [animate]);
+
+  // --- 2. RELÓGIO E DATA COMPLETA ---
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      // Formato: "Quarta-feira, 26 de Novembro • 22:45"
+      const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setDateTime(`${dateStr} • ${timeStr}`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // --- 3. BUSCA DE NOTÍCIAS ---
+  const fetchNews = useCallback(async () => {
+    setLoading(true);
+    let allItems = [];
+    const activeFeeds = Object.entries(FEEDS).filter(([key]) => topics[key]);
+
+    const promises = activeFeeds.map(async ([key, feed]) => {
+      try {
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`);
+        const data = await res.json();
+        return data.items ? data.items.map(i => i.title) : [];
+      } catch { return []; }
+    });
+
+    const results = await Promise.all(promises);
+    results.forEach(titles => allItems = [...allItems, ...titles]);
+    
+    // Limpeza
+    const clean = [...new Set(allItems)]
+      .map(t => t.replace(/<[^>]*>?/gm, '').trim())
+      .slice(0, 30); // Limite de 30 para performance
+
+    setNews(clean.length > 0 ? clean : ['Selecione categorias no menu...']);
+    setLoading(false);
+  }, [topics.nacional, topics.internacional, topics.esporte, topics.variados]);
+
+  // Carrega ao mudar tópicos
+  useEffect(() => {
+    // Pequeno delay para não flodar a API se o usuário clicar rápido
+    const timer = setTimeout(fetchNews, 800);
+    return () => clearTimeout(timer);
+  }, [topics.nacional, topics.internacional, topics.esporte, topics.variados, fetchNews]);
+
+  // --- MONTAGEM DO CONTEÚDO ---
+  const finalContent = [];
+  if (topics.dataHora) finalContent.push(dateTime);
+  finalContent.push(...news);
+
+  // --- FULLSCREEN ---
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(e => console.log(e));
+      setIsFullscreen(true);
+      setShowMenu(false);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
     }
-    estilizar();
+  };
+
+  return (
+    <div 
+      className="relative w-full h-screen overflow-hidden bg-black font-sans select-none"
+      style={{ backgroundColor: style.bgColor }}
+    >
+      
+      {/* --- ÁREA DE SCROLL (VIEWPORT) --- */}
+      <div 
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center overflow-hidden transition-all duration-500
+          ${isRotated ? 'w-[100vh] h-[100vw] rotate-90' : 'w-full h-full'}
+        `}
+      >
+        {/* CONTAINER MÓVEL (Joga pro lado via JS) */}
+        <div ref={scrollerRef} className="flex items-center whitespace-nowrap will-change-transform">
+          
+          {/* RENDERIZAÇÃO DUPLA (A e B) para Loop Infinito */}
+          <div ref={contentRef} className="flex items-center">
+            {/* BLOCO 1 */}
+            {finalContent.map((text, i) => (
+              <NewsItem key={`a-${i}`} text={text} style={style} />
+            ))}
+            {/* BLOCO 2 (Cópia exata) */}
+            {finalContent.map((text, i) => (
+              <NewsItem key={`b-${i}`} text={text} style={style} />
+            ))}
+          </div>
+
+        </div>
+      </div>
+
+      {/* --- BOTÃO DE ABRIR MENU --- */}
+      {!showMenu && (
+        <button 
+          onClick={() => setShowMenu(true)}
+          className="fixed bottom-5 right-5 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md shadow-lg border border-white/10 transition-all hover:scale-110"
+        >
+          <Settings size={24} />
+        </button>
+      )}
+
+      {/* --- MENU FLUTUANTE --- */}
+      <div className={`fixed inset-y-0 right-0 z-50 w-80 bg-zinc-900/95 backdrop-blur-xl border-l border-white/10 shadow-2xl transform transition-transform duration-300 ${showMenu ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex flex-col h-full text-gray-100">
+          
+          {/* Cabeçalho Menu */}
+          <div className="p-5 border-b border-white/10 flex justify-between items-center bg-black/20">
+            <h2 className="font-bold flex items-center gap-2 text-white">
+              <Monitor className="text-blue-500" size={18}/> Painel Pro
+            </h2>
+            <button onClick={() => setShowMenu(false)} className="hover:text-white text-gray-400"><X /></button>
+          </div>
+
+          {/* Conteúdo Menu */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            
+            {/* CONTROLES DE TELA */}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={toggleFullscreen} className="flex flex-col items-center justify-center p-3 rounded bg-white/5 hover:bg-white/10 border border-white/5 transition-colors">
+                {isFullscreen ? <Minimize size={20}/> : <Maximize size={20}/>}
+                <span className="text-[10px] mt-1 font-bold uppercase">{isFullscreen ? 'Sair Full' : 'Fullscreen'}</span>
+              </button>
+              <button onClick={() => setIsRotated(!isRotated)} className={`flex flex-col items-center justify-center p-3 rounded border transition-colors ${isRotated ? 'bg-blue-600 border-blue-500' : 'bg-white/5 border-white/5'}`}>
+                <Smartphone size={20} className={isRotated ? 'rotate-90' : ''}/>
+                <span className="text-[10px] mt-1 font-bold uppercase">Girar Tela</span>
+              </button>
+            </div>
+
+            {/* SELEÇÃO DE TÓPICOS */}
+            <section className="space-y-2">
+              <h3 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2"><Globe size={12}/> Fontes</h3>
+              <Toggle label="Notícias Nacionais" active={topics.nacional} onClick={() => setTopics({...topics, nacional: !topics.nacional})} />
+              <Toggle label="Internacional" active={topics.internacional} onClick={() => setTopics({...topics, internacional: !topics.internacional})} />
+              <Toggle label="Esportes" active={topics.esporte} onClick={() => setTopics({...topics, esporte: !topics.esporte})} />
+              <Toggle label="Variedades" active={topics.variados} onClick={() => setTopics({...topics, variados: !topics.variados})} />
+              <Toggle label="Data e Hora Completa" active={topics.dataHora} onClick={() => setTopics({...topics, dataHora: !topics.dataHora})} icon={<Calendar size={14} className="text-yellow-400"/>} />
+            </section>
+
+            {/* CONTROLE DE VELOCIDADE (O CORAÇÃO DO PROBLEMA) */}
+            <section className="bg-blue-900/10 p-4 rounded-lg border border-blue-500/20">
+              <div className="flex justify-between text-xs font-bold text-blue-200 mb-2">
+                <span className="flex items-center gap-1"><Zap size={14}/> VELOCIDADE REAL</span>
+                <span>{style.speed.toFixed(1)}x</span>
+              </div>
+              <input 
+                type="range" min="0" max="15" step="0.5"
+                value={style.speed}
+                onChange={(e) => setStyle({...style, speed: Number(e.target.value)})}
+                className="w-full accent-blue-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-[10px] text-gray-400 mt-2 text-center">Arraste para controlar em tempo real.</p>
+            </section>
+
+            {/* PERSONALIZAÇÃO VISUAL */}
+            <section className="space-y-4">
+              <h3 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2"><Palette size={12}/> Aparência</h3>
+              
+              <div className="grid grid-cols-3 gap-2">
+                 <ColorPicker label="Fundo" value={style.bgColor} onChange={(v) => setStyle({...style, bgColor: v})} />
+                 <ColorPicker label="Texto" value={style.textColor} onChange={(v) => setStyle({...style, textColor: v})} />
+                 <ColorPicker label="Separador" value={style.separatorColor} onChange={(v) => setStyle({...style, separatorColor: v})} />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-500 font-bold uppercase">Texto do Separador</label>
+                <input 
+                  type="text" value={style.separatorText}
+                  onChange={(e) => setStyle({...style, separatorText: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 flex justify-between">
+                  <span>Tamanho Fonte</span> <span>{style.fontSize}</span>
+                </label>
+                <input 
+                  type="range" min="2" max="25" step="0.5"
+                  value={style.fontSize}
+                  onChange={(e) => setStyle({...style, fontSize: Number(e.target.value)})}
+                  className="w-full accent-white h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </section>
+
+            {/* RODAPÉ */}
+            <div className="pt-4 border-t border-white/10">
+               <button 
+                onClick={fetchNews}
+                disabled={loading}
+                className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold rounded flex items-center justify-center gap-2 transition-colors"
+              >
+                <RefreshCw size={12} className={loading ? 'animate-spin' : ''}/>
+                {loading ? 'Buscando...' : 'Forçar Atualização de Notícias'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function estilizar(){
-    texto.style.color = document.getElementById("corTexto").value;
-    display.style.background = document.getElementById("corFundo").value;
-    texto.style.fontSize = document.getElementById("tamanho").value+"px";
+// --- SUB-COMPONENTES PARA ORGANIZAÇÃO ---
 
-    let v = document.getElementById("velocidade").value;
-    texto.style.animationDuration = (120/v)+"s";
-}
+// Componente individual de notícia
+const NewsItem = React.memo(({ text, style }) => (
+  <div className="flex items-center">
+    <span 
+      className={`whitespace-nowrap px-4 font-bold ${style.uppercase ? 'uppercase' : ''}`}
+      style={{ 
+        color: style.textColor, 
+        fontSize: `${style.fontSize}vh`,
+        fontFamily: style.fontFamily,
+        lineHeight: 1
+      }}
+    >
+      {text}
+    </span>
+    <span 
+      className="whitespace-nowrap px-4 font-black tracking-widest opacity-90"
+      style={{ 
+        color: style.separatorColor,
+        fontSize: `${style.fontSize * 0.6}vh`,
+        transform: 'translateY(10%)'
+      }}
+    >
+      ● {style.separatorText} ●
+    </span>
+  </div>
+));
 
-document.querySelectorAll("select,input").forEach(e=>e.oninput=estilizar);
-document.getElementById("categoria").onchange=atualizar;
+// Toggle Switch
+const Toggle = ({ label, active, onClick, icon }) => (
+  <div onClick={onClick} className="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 transition-colors group select-none">
+    <span className={`text-xs font-medium flex items-center gap-2 ${active ? 'text-white' : 'text-gray-500'}`}>
+      {icon} {label}
+    </span>
+    <div className={`w-8 h-4 rounded-full relative transition-colors ${active ? 'bg-green-500' : 'bg-gray-700'}`}>
+      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${active ? 'left-4.5' : 'left-0.5'}`} style={{ left: active ? '18px' : '2px' }}/>
+    </div>
+  </div>
+);
 
-atualizar(); setInterval(atualizar, 180000); // atualiza a cada 3 minutos
-</script>
-</body>
-</html>
+// Color Picker
+const ColorPicker = ({ label, value, onChange }) => (
+  <div>
+    <label className="text-[9px] text-gray-500 font-bold uppercase mb-1 block">{label}</label>
+    <div className="h-8 w-full rounded relative overflow-hidden border border-white/10 hover:border-white/30 transition-colors">
+      <input 
+        type="color" value={value} onChange={(e) => onChange(e.target.value)}
+        className="absolute -top-4 -left-4 w-24 h-24 cursor-pointer p-0 border-none"
+      />
+    </div>
+  </div>
+);
+
