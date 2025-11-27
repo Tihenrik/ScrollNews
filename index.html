@@ -206,12 +206,8 @@
         // -------------------------------------------------------------
         //  CONFIGURAÇÃO DO BACKEND (Google Sheets CSV)
         // -------------------------------------------------------------
-        // Passo 1: Google Sheets -> Arquivo -> Compartilhar -> Publicar na Web
-        // Passo 2: Escolha "CSV" e copie o link.
-        // Passo 3: Cole o link abaixo dentro das aspas.
-        // -------------------------------------------------------------
         
-        const CONFIG_CSV_URL = 'COLE_SEU_LINK_AQUI'; 
+        const CONFIG_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxaq9YZdf8mZjC-kWHHR6LljaM5u2g3wQgRAQrdP9z5uoRXKja7904G5oL_qYunuwU8L3Y58qmz2NO/pub?gid=0&single=true&output=csv'; 
 
         // -------------------------------------------------------------
 
@@ -265,7 +261,7 @@
 
             // Mensagem de erro/espera
             if (items.length === 0 || (items.length === 1 && items[0] === state.currentDateStr)) {
-                 if(!CONFIG_CSV_URL || CONFIG_CSV_URL === 'COLE_SEU_LINK_AQUI') {
+                 if(!CONFIG_CSV_URL || CONFIG_CSV_URL.includes('COLE_SEU_LINK')) {
                      items.push("URL do CSV não configurada no código.");
                  } else {
                      items.push("Carregando notícias...");
@@ -350,7 +346,7 @@
             const btn = document.getElementById('btn-refresh');
             const originalText = btn.innerHTML;
             
-            if (!CONFIG_CSV_URL || CONFIG_CSV_URL === 'COLE_SEU_LINK_AQUI') {
+            if (!CONFIG_CSV_URL) {
                 renderContent(); // Mostra msg de erro
                 return;
             }
@@ -383,7 +379,7 @@
 
             } catch(e) { 
                 console.error("Erro CSV:", e);
-                state.news = ["Erro ao carregar dados. Verifique a configuração."];
+                state.news = ["Erro ao carregar dados. Verifique a conexão."];
             }
 
             renderContent();
@@ -452,7 +448,7 @@
         }, 300000);
 
         updateTime();
-        if(CONFIG_CSV_URL && CONFIG_CSV_URL !== 'COLE_SEU_LINK_AQUI') fetchNews();
+        if(CONFIG_CSV_URL) fetchNews();
         else renderContent();
         
         updateStyle();
