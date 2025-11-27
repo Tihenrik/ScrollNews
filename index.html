@@ -8,7 +8,7 @@
 <style>
     body {
         margin: 0;
-        background: #111;
+        background: #000;
         color: white;
         font-family: Arial, sans-serif;
         display: flex;
@@ -18,21 +18,23 @@
 
     header {
         padding: 10px;
-        background: #1c1c1c;
+        background: #0a0a0a;
         display: flex;
-        gap: 10px;
         flex-wrap: wrap;
+        gap: 10px;
         justify-content: center;
-        border-bottom: 2px solid #333;
+        border-bottom: 2px solid #111;
     }
 
     select, input[type="color"], input[type="range"] {
-        padding: 6px;
-        font-size: 14px;
-        border-radius: 5px;
+        padding: 8px;
+        font-size: 15px;
+        border-radius: 6px;
         border: none;
-        outline: none;
+        background: #1c1c1c;
+        color: white;
     }
+
     .viewer {
         flex: 1;
         display: flex;
@@ -46,6 +48,8 @@
         white-space: nowrap;
         position: absolute;
         animation: scroll linear infinite;
+        font-weight: bold;
+        text-shadow: 0 0 10px currentColor;
     }
 
     @keyframes scroll {
@@ -69,7 +73,7 @@
     <input type="color" id="corTexto" value="#00ff00" title="Cor do texto">
     <input type="color" id="corFundo" value="#000000" title="Cor do fundo">
     <input type="range" id="velocidade" min="5" max="60" value="20" title="Velocidade">
-    <input type="range" id="tamanho" min="16" max="90" value="40" title="Tamanho da fonte">
+    <input type="range" id="tamanho" min="16" max="90" value="45" title="Tamanho do texto">
 </header>
 
 <div class="viewer" id="viewer">
@@ -77,7 +81,7 @@
 </div>
 
 <script>
-const key =5fbaa4278d9d4d999e7a3fea5e57c91f; // <── coloque sua KEY da NewsAPI.org
+const key = "5fbaa4278d9d4d999e7a3fea5e57c91f"; // ← SUA KEY
 const texto = document.getElementById("scrollText");
 const viewer = document.getElementById("viewer");
 
@@ -88,11 +92,11 @@ async function carregarNoticias(){
     try{
         const res = await fetch(url);
         const data = await res.json();
+        let noticias = data.articles.map(n => n.title).join("   ✦   ");
 
-        let manchetes = data.articles.map(n => n.title).join("   ✦   ");
-        texto.textContent = manchetes || "Nenhuma notícia encontrada";
+        texto.textContent = noticias || "Nenhuma notícia encontrada";
         atualizarEstilos();
-    }catch{
+    }catch(e){
         texto.textContent = "Erro ao carregar notícias.";
     }
 }
@@ -102,18 +106,16 @@ function atualizarEstilos(){
     viewer.style.background = document.getElementById("corFundo").value;
     texto.style.fontSize = document.getElementById("tamanho").value + "px";
 
-    const vel = document.getElementById("velocidade").value;
-    texto.style.animationDuration = (80 / vel) + "s"; // mais suave e proporcional
+    let vel = document.getElementById("velocidade").value;
+    texto.style.animationDuration = (90 / vel) + "s"; 
 }
 
-document.querySelectorAll("select,input").forEach(el =>
-    el.addEventListener("input", atualizarEstilos)
+document.querySelectorAll("select,input").forEach(i =>
+    i.addEventListener("input", atualizarEstilos)
 );
 
 document.getElementById("categoria").addEventListener("change", carregarNoticias);
-
-// Atualiza auto a cada 5min
-setInterval(carregarNoticias, 300000);
+setInterval(carregarNoticias, 300000); // Atualiza a cada 5min
 carregarNoticias();
 </script>
 
