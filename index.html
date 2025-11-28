@@ -2,7 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- ADICIONADO: viewport-fit=cover para preencher toda a tela, inclusive áreas de notch/navegação -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- ADICIONADO: Controla a cor das barras do navegador (status bar e nav bar em alguns navegadores) -->
+    <meta name="theme-color" content="#000000" id="meta-theme-color">
+    <!-- Para iOS Safari -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
     <title>ScrollNews</title>
     
     <!-- Tailwind CSS -->
@@ -14,17 +21,25 @@
     <style>
         /* --- ESTILOS GERAIS --- */
         html {
-            background-color: #000; /* CORREÇÃO: Garante fundo preto no HTML */
+            background-color: #000;
             height: 100%;
+            overflow: hidden; /* Garante que não haja scroll na página inteira */
         }
 
         body {
             margin: 0;
-            height: 100%; /* Garante altura total */
+            /* ADICIONADO: 100dvh ignora a barra de endereços dinâmica do mobile */
+            height: 100dvh; 
+            width: 100vw;
             overflow: hidden;
             background-color: #000;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             user-select: none;
+            /* ADICIONADO: Previne o efeito elástico branco no iOS/Android */
+            overscroll-behavior: none;
+            position: fixed; /* Trava o corpo da página */
+            top: 0;
+            left: 0;
         }
 
         /* --- ENGINE DO SCROLL --- */
@@ -39,6 +54,8 @@
             align-items: center;
             overflow: hidden;
             transition: width 0.5s, height 0.5s, transform 0.5s;
+            /* Garante que o container respeite áreas seguras se necessário, mas queremos full bleed */
+            z-index: 1;
         }
 
         #scroller-track {
@@ -56,6 +73,8 @@
         /* --- MENU LATERAL --- */
         #settings-panel {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Garante que o menu fique acima de tudo e respeite a altura correta */
+            height: 100dvh; 
         }
         
         /* --- SLIDERS --- */
@@ -82,10 +101,14 @@
         }
         
         /* --- MODO ROTAÇÃO --- */
+        /* Ajustado para garantir cobertura total ao rotacionar */
         .rotated-mode {
             width: 100vh !important;
             height: 100vw !important;
             transform: translate(-50%, -50%) rotate(90deg) !important;
+            position: fixed;
+            top: 50%;
+            left: 50%;
         }
     </style>
 </head>
@@ -326,7 +349,6 @@
         function parseCSV(csvText) {
             const lines = csvText.split(/\r\n|\n/);
             const result = [];
-            // Regex para tratar vírgulas dentro de aspas
             const splitRegex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
 
             for (let i = 1; i < lines.length; i++) {
@@ -353,7 +375,7 @@
             const originalText = btn.innerHTML;
             
             if (!CONFIG_CSV_URL) {
-                renderContent(); // Mostra msg de erro
+                renderContent(); 
                 return;
             }
 
@@ -361,7 +383,6 @@
             btn.disabled = true;
 
             try {
-                // Cache Buster para garantir dados frescos
                 const cacheBuster = CONFIG_CSV_URL + (CONFIG_CSV_URL.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
                 
                 const res = await fetch(cacheBuster);
@@ -371,7 +392,6 @@
                 const textData = await res.text();
                 const parsedData = parseCSV(textData);
                 
-                // Filtros
                 const activeFilters = [];
                 if(document.getElementById('check-nacional').checked) activeFilters.push('nacional');
                 if(document.getElementById('check-internacional').checked) activeFilters.push('internacional');
@@ -418,10 +438,16 @@
             
             document.getElementById('fontsize-display').innerText = state.fontSize + 'vh';
             
-            // --- CORREÇÃO AQUI ---
-            // Aplicar cor de fundo tanto ao body quanto ao HTML (para corrigir o fundo branco no fullscreen)
+            // --- CORREÇÃO DO ANDROID ---
             document.body.style.backgroundColor = state.bgColor;
             document.documentElement.style.backgroundColor = state.bgColor;
+            
+            // Atualiza a Meta Tag Theme-Color dinamicamente
+            // Isso força o navegador (Chrome/Android) a pintar as barras de sistema da cor escolhida
+            const metaThemeColor = document.getElementById('meta-theme-color');
+            if (metaThemeColor) {
+                metaThemeColor.setAttribute('content', state.bgColor);
+            }
             
             renderContent();
         };
@@ -444,8 +470,13 @@
         document.getElementById('btn-refresh').addEventListener('click', fetchNews);
 
         document.getElementById('btn-fullscreen').addEventListener('click', () => {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-            else document.exitFullscreen();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(e => {
+                    console.log("Erro ao entrar em fullscreen:", e);
+                });
+            } else {
+                document.exitFullscreen();
+            }
         });
 
         document.getElementById('btn-rotate').addEventListener('click', () => {
@@ -453,7 +484,6 @@
             container.classList.toggle('rotated-mode', state.isRotated);
         });
 
-        // --- INICIALIZAÇÃO AUTOMÁTICA (5 minutos) ---
         setInterval(() => {
             if(CONFIG_CSV_URL) fetchNews();
         }, 300000);
