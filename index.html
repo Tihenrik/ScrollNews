@@ -13,8 +13,14 @@
 
     <style>
         /* --- ESTILOS GERAIS --- */
+        html {
+            background-color: #000; /* CORREÇÃO: Garante fundo preto no HTML */
+            height: 100%;
+        }
+
         body {
             margin: 0;
+            height: 100%; /* Garante altura total */
             overflow: hidden;
             background-color: #000;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -411,7 +417,12 @@
             state.isUppercase = document.getElementById('check-uppercase').checked;
             
             document.getElementById('fontsize-display').innerText = state.fontSize + 'vh';
+            
+            // --- CORREÇÃO AQUI ---
+            // Aplicar cor de fundo tanto ao body quanto ao HTML (para corrigir o fundo branco no fullscreen)
             document.body.style.backgroundColor = state.bgColor;
+            document.documentElement.style.backgroundColor = state.bgColor;
+            
             renderContent();
         };
 
@@ -456,5 +467,4 @@
     </script>
 </body>
 </html>
-
 
