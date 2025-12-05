@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>ScrollNews</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* --- CORE VISUAL --- */
+        :root { --app-bg: #000000; }
+
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: var(--app-bg) !important;
+            overscroll-behavior: none;
+            position: fixed;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-user-select: none; user-select: none;
+        }
+
+        /* Camada de segurança (Bounce iOS) */
+        body::before {
+            content: ""; position: fixed;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background-color: var(--app-bg);
+            z-index: -10; pointer-events: none;
+        }
+
+        #app-wrapper {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: var(--app-bg);
+            overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        #app-wrapper:fullscreen { width: 100vw; height: 100vh; }
+        #app-wrapper:-webkit-full-screen { width: 100vw; height: 100vh; }
+
+        /* --- ENGINE DO SCROLL (GPU) --- */
+        #scroller-container {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; height: 100%;
+            display: flex; align-items: center;
+            overflow: hidden; z-index: 1;
+        }
+
+        #scroller-track {
+            display: flex; align-items: center;
+            white-space: nowrap; will-change: transform;
+        }
+
+        .news-item {
+            display: flex; align-items: center; flex-shrink: 0;
+            text-shadow: none !important; filter: none !important;
+        }
+
+        .separator-stack {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            line-height: 1; padding: 0 3vh;
+            text-shadow: none !important; filter: none !important;
+        }
+
+        /* --- BOTÃO FLUTUANTE (COM TRANSIÇÃO DE OPACIDADE) --- */
+        #btn-open-settings {
+            position: absolute; z-index: 9999;
+            cursor: grab; touch-action: none;
+            transition: opacity 0.5s ease-in-out, transform 0.1s linear; /* Opacidade suave, movimento rápido */
+        }
+        #btn-open-settings:active { cursor: grabbing; }
+
+        /* --- UI ELEMENTS --- */
+        #settings-panel {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: absolute; height: 100%; z-index: 999;
+        }
+        
+        .accordion-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            max-height: 0; opacity: 0; overflow: hidden;
+        }
+        .accordion-content.open { max-height: 500px; opacity: 1; }
+        
+        /* Sliders */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px;
+            border-radius: 50%; background: #ffffff; cursor: pointer;
+            margin-top: -6px; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer;
+            background: #4B5563; border-radius: 2px;
+        }
+        
+        .rotated-mode {
+            width: 100vh !important; height: 100vw !important;
+            transform: translate(-50%, -50%) rotate(90deg) !important;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes flash-green {
+            0% { background-color: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.5); }
+            100% { background-color: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.05); }
+        }
+        .copied-feedback { animation: flash-green 0.5s ease-out; }
+    </style>
+</head>
+<body>
+
+    <div id="app-wrapper">
+
+        <div id="scroller-container">
+            <div id="scroller-track"></div>
+        </div>
+
+        <div id="btn-open-settings" class="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md shadow-lg border border-white/10 group">
+            <i data-lucide="settings" class="pointer-events-none group-hover:rotate-90 transition-transform duration-500"></i>
+        </div>
+
+        <div id="settings-panel" class="inset-y-0 right-0 w-80 bg-zinc-900/95 backdrop-blur-xl border-l border-white/10 shadow-2xl transform translate-x-full text-gray-200 flex flex-col">
+            
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-black/20">
+                <h2 class="font-bold flex items-center gap-2 text-white">
+                    <i data-lucide="layout-template" class="text-blue-500 w-5 h-5"></i> Configurações
+                </h2>
+                <button id="btn-close-settings" class="hover:text-white text-gray-400"><i data-lucide="x"></i></button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar">
+                
+                <button id="btn-refresh" class="w-full py-3 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs font-bold rounded flex items-center justify-center gap-2 transition-all border border-white/5">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> Atualizar Agora
+                </button>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="btn-fullscreen" class="flex flex-col items-center justify-center p-3 rounded bg-white/5 hover:bg-white/10 border border-white/5 transition-colors">
+                        <i data-lucide="maximize" class="w-5 h-5 mb-1"></i><span class="text-[10px] font-bold uppercase">Fullscreen</span>
+                    </button>
+                    <button id="btn-rotate" class="flex flex-col items-center justify-center p-3 rounded bg-white/5 hover:bg-white/10 border border-white/5 transition-colors">
+                        <i data-lucide="smartphone" class="w-5 h-5 mb-1"></i><span class="text-[10px] font-bold uppercase">Girar Tela</span>
+                    </button>
+                </div>
+
+                <section class="border border-white/5 rounded overflow-hidden">
+                    <button id="btn-toggle-filters" class="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors">
+                        <span class="text-xs font-bold text-gray-400 uppercase flex items-center gap-2"><i data-lucide="filter" class="w-3 h-3"></i> Filtros (Categorias)</span>
+                        <i id="icon-filters" data-lucide="chevron-down" class="w-4 h-4 text-gray-500 transition-transform duration-300"></i>
+                    </button>
+                    <div id="filters-content" class="accordion-content bg-zinc-800/30">
+                        <div class="p-3 space-y-2">
+                            <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 transition-all">
+                                <span class="text-xs font-medium">Nacional</span><input type="checkbox" id="check-nacional" checked class="accent-blue-500 w-4 h-4 rounded">
+                            </label>
+                            <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 transition-all">
+                                <span class="text-xs font-medium">Internacional</span><input type="checkbox" id="check-internacional" checked class="accent-blue-500 w-4 h-4 rounded">
+                            </label>
+                            <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 transition-all">
+                                <span class="text-xs font-medium">Esportes</span><input type="checkbox" id="check-esportes" checked class="accent-blue-500 w-4 h-4 rounded">
+                            </label>
+                            <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 transition-all">
+                                <span class="text-xs font-medium">Economia</span><input type="checkbox" id="check-economia" checked class="accent-blue-500 w-4 h-4 rounded">
+                            </label>
+                            <label class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-white/5 transition-all">
+                                <span class="text-xs font-medium text-yellow-400 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Data e Hora</span>
+                                <input type="checkbox" id="check-tempo" checked class="accent-yellow-400 w-4 h-4 rounded">
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
+                    <div class="flex justify-between text-xs font-bold text-blue-200 mb-2">
+                        <span class="flex items-center gap-1"><i data-lucide="zap" class="w-3 h-3"></i> VELOCIDADE</span><span id="speed-display">3.0x</span>
+                    </div>
+                    <input type="range" id="input-speed" min="0" max="15" step="0.1" value="3.0" class="w-full">
+                </section>
+
+                <section class="space-y-4">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase flex items-center gap-2"><i data-lucide="palette" class="w-3 h-3"></i> Estilo</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] text-gray-500 font-bold uppercase">Fundo</label>
+                            <input type="color" id="color-bg" value="#000000" class="w-full h-8 rounded cursor-pointer border border-white/20">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] text-gray-500 font-bold uppercase">Texto</label>
+                            <input type="color" id="color-text" value="#ffffff" class="w-full h-8 rounded cursor-pointer border border-white/20">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] text-gray-500 font-bold uppercase">Separador</label>
+                            <input type="color" id="color-separator" value="#ff0000" class="w-full h-8 rounded cursor-pointer border border-white/20">
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] text-gray-500 font-bold uppercase mb-1">
+                            <span>Tamanho da Fonte</span><span id="fontsize-display" class="text-blue-400">4vh</span>
+                        </div>
+                        <input type="range" id="input-fontsize" min="2" max="35" step="0.5" value="4" class="w-full accent-white">
+                    </div>
+                    <label class="flex items-center gap-2 pt-2 border-t border-white/5">
+                        <input type="checkbox" id="check-uppercase" checked class="accent-blue-500 w-4 h-4 rounded">
+                        <span class="text-xs text-gray-400">TEXTO EM CAIXA ALTA</span>
+                    </label>
+                </section>
+
+                <section class="pt-4 border-t border-white/10">
+                    <button id="btn-toggle-contact" class="w-full py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30 rounded flex items-center justify-center gap-2 transition-all font-bold text-xs uppercase">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i> Fale Conosco
+                    </button>
+                    <div id="contact-content" class="accordion-content">
+                        <div class="pt-3 grid gap-2">
+                            <div id="copy-whatsapp" class="flex items-center gap-3 p-3 bg-white/5 hover:bg-white/10 rounded border border-white/5 cursor-pointer active:scale-95 transition-all group select-none">
+                                <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0"><i data-lucide="phone" class="w-4 h-4 fill-current"></i></div>
+                                <div class="flex flex-col">
+                                    <span id="label-whatsapp" class="text-[10px] font-bold text-gray-400 uppercase group-hover:text-green-400 transition-colors">Clique para Copiar</span>
+                                    <span class="text-xs text-white tracking-wide">(16) 9821-41433</span>
+                                </div>
+                            </div>
+                            <div id="copy-email" class="flex items-center gap-3 p-3 bg-white/5 hover:bg-white/10 rounded border border-white/5 cursor-pointer active:scale-95 transition-all group select-none">
+                                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white shrink-0"><i data-lucide="mail" class="w-4 h-4"></i></div>
+                                <div class="flex flex-col overflow-hidden">
+                                    <span id="label-email" class="text-[10px] font-bold text-gray-400 uppercase group-hover:text-blue-400 transition-colors">Clique para Copiar</span>
+                                    <span class="text-xs text-white truncate">contatotiagohenrique@gmail.com</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <div class="h-10"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        const CONFIG_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxaq9YZdf8mZjC-kWHHR6LljaM5u2g3wQgRAQrdP9z5uoRXKja7904G5oL_qYunuwU8L3Y58qmz2NO/pub?gid=0&single=true&output=csv'; 
+        const STORAGE_KEY = 'scrollnews_settings_v9_final';
+
+        const state = {
+            news: [], speed: 3.0, pos: 0,
+            bgColor: '#000000', textColor: '#ffffff', sepColor: '#ff0000', sepText: 'ScrollNews',
+            fontSize: 4, isUppercase: true, isRotated: false,
+            btnPos: { top: 'unset', left: 'unset', right: '24px', bottom: '60px' } 
+        };
+
+        const track = document.getElementById('scroller-track');
+        const container = document.getElementById('scroller-container');
+        const appWrapper = document.getElementById('app-wrapper');
+        const btnOpen = document.getElementById('btn-open-settings');
+        const settingsPanel = document.getElementById('settings-panel');
+
+        // --- SISTEMA DE BOTÃO INVISÍVEL (AUTO-HIDE) ---
+        let btnInactivityTimer;
+
+        function resetButtonVisibility() {
+            // Se o painel estiver aberto, o botão deve permanecer escondido
+            if (!settingsPanel.classList.contains('translate-x-full')) return;
+
+            // Mostra o botão
+            btnOpen.style.opacity = '1';
+            btnOpen.style.pointerEvents = 'auto';
+
+            // Reseta o timer
+            clearTimeout(btnInactivityTimer);
+            btnInactivityTimer = setTimeout(() => {
+                // Esconde após 5s se não estiver sendo arrastado ou painel aberto
+                if (!isDragging && settingsPanel.classList.contains('translate-x-full')) {
+                    btnOpen.style.opacity = '0';
+                    btnOpen.style.pointerEvents = 'none'; // Evita toques acidentais
+                }
+            }, 5000);
+        }
+
+        // Ativa visibilidade em qualquer interação
+        document.addEventListener('touchstart', resetButtonVisibility, { passive: true });
+        document.addEventListener('mousemove', resetButtonVisibility);
+        
+        // --- NOVO: MOVER BOTÃO PARA ONDE CLICAR (TELEPORTE) ---
+        // Isso impede que o botão "suma" para sempre, pois ele vem até o usuário
+        document.addEventListener('click', (e) => {
+            // Ignora se o clique for dentro do painel, no próprio botão ou durante arrasto
+            if (settingsPanel.contains(e.target) || btnOpen.contains(e.target) || isDragging) {
+                return;
+            }
+
+            // Garante que o timer de visibilidade seja resetado
+            resetButtonVisibility();
+
+            // Pega as dimensões atuais do botão
+            const rect = btnOpen.getBoundingClientRect();
+            const w = rect.width || 48; // valor de fallback
+            const h = rect.height || 48;
+
+            // Calcula a posição centralizada no clique
+            let newX = e.clientX - (w / 2);
+            let newY = e.clientY - (h / 2);
+
+            // Garante que não saia dos limites da tela
+            const maxX = window.innerWidth - w;
+            const maxY = window.innerHeight - h;
+
+            if (newX < 0) newX = 0;
+            if (newX > maxX) newX = maxX;
+            if (newY < 0) newY = 0;
+            if (newY > maxY) newY = maxY;
+
+            // Aplica a nova posição e limpa posicionamentos conflitantes
+            btnOpen.style.right = 'auto';
+            btnOpen.style.bottom = 'auto';
+            btnOpen.style.left = newX + 'px';
+            btnOpen.style.top = newY + 'px';
+
+            // Atualiza o estado e salva para persistir após refresh
+            state.btnPos = { top: newY + 'px', left: newX + 'px', right: 'auto', bottom: 'auto' };
+            saveSettings();
+        });
+        
+        // --- DRAG & DROP SEGURO ---
+        let isDragging = false;
+        let startX, startY, btnLeft, btnTop;
+
+        function startDrag(e) {
+            if(e.type === 'mousedown' && e.button !== 0) return;
+            isDragging = false;
+            resetButtonVisibility(); // Garante que fique visível ao tocar
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            startX = clientX; startY = clientY;
+            const rect = btnOpen.getBoundingClientRect();
+            btnLeft = rect.left; btnTop = rect.top;
+            
+            document.addEventListener(e.touches ? 'touchmove' : 'mousemove', doDrag, { passive: false });
+            document.addEventListener(e.touches ? 'touchend' : 'mouseup', stopDrag);
+        }
+
+        function doDrag(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const deltaX = clientX - startX;
+            const deltaY = clientY - startY;
+
+            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                isDragging = true;
+                e.preventDefault();
+                
+                let newLeft = btnLeft + deltaX;
+                let newTop = btnTop + deltaY;
+                const maxLeft = window.innerWidth - btnOpen.offsetWidth;
+                const maxTop = window.innerHeight - btnOpen.offsetHeight;
+
+                if(newLeft < 0) newLeft = 0;
+                if(newLeft > maxLeft) newLeft = maxLeft;
+                if(newTop < 0) newTop = 0;
+                if(newTop > maxTop) newTop = maxTop;
+
+                btnOpen.style.bottom = 'auto'; btnOpen.style.right = 'auto';
+                btnOpen.style.left = newLeft + 'px';
+                btnOpen.style.top = newTop + 'px';
+            }
+        }
+
+        function stopDrag(e) {
+            document.removeEventListener(e.touches ? 'touchmove' : 'mousemove', doDrag);
+            document.removeEventListener(e.touches ? 'touchend' : 'mouseup', stopDrag);
+            
+            if (isDragging) {
+                state.btnPos = { top: btnOpen.style.top, left: btnOpen.style.left, bottom: 'auto', right: 'auto' };
+                saveSettings();
+                // Pequeno delay para evitar que o 'click' dispare logo após o drag
+                setTimeout(() => { isDragging = false; }, 100);
+            } else {
+                openSettings();
+                isDragging = false;
+            }
+            // Não esconde imediatamente ao soltar, deixa o timer de 5s cuidar disso
+        }
+        btnOpen.addEventListener('mousedown', startDrag);
+        btnOpen.addEventListener('touchstart', startDrag, { passive: false });
+
+        function openSettings() {
+            settingsPanel.classList.remove('translate-x-full');
+            btnOpen.style.opacity = '0'; btnOpen.style.pointerEvents = 'none';
+        }
+        document.getElementById('btn-close-settings').addEventListener('click', () => {
+            settingsPanel.classList.add('translate-x-full');
+            resetButtonVisibility(); // Restaura botão visível e reinicia timer
+        });
+
+        // --- ANIMATION ---
+        function animate() {
+            state.pos -= state.speed;
+            const totalWidth = track.scrollWidth;
+            const singleSetWidth = totalWidth / 2;
+            if (singleSetWidth > 0 && state.pos <= -singleSetWidth) {
+                state.pos += singleSetWidth;
+                if (state.pos <= -singleSetWidth) state.pos = 0;
+            }
+            track.style.transform = `translate3d(${state.pos}px, 0, 0)`;
+            requestAnimationFrame(animate);
+        }
+
+                // --- RENDER ---
+        function renderContent() {
+            let items = [];
+            // Adiciona o Relógio primeiro
+            if (document.getElementById('check-tempo').checked) items.push({ type: 'clock', title: getTimeString(), category: 'TEMPO REAL' });
+            // Adiciona as notícias depois
+            state.news.forEach(n => items.push({ type: 'news', ...n }));
+
+            if (items.length === 0 || (items.length === 1 && items[0].type === 'clock')) {
+                 if(!CONFIG_CSV_URL || CONFIG_CSV_URL.includes('COLE_SEU_LINK')) items.push({ type: 'info', title: "URL não configurada", category: "SISTEMA" });
+                 else if (state.news.length === 0) items.push({ type: 'info', title: "Carregando...", category: "INFO" });
+            }
+
+            const createItemHTML = (item) => {
+                const clockAttr = item.type === 'clock' ? 'data-clock-target="true"' : '';
+                
+                // AQUI ESTÁ A MUDANÇA: O bloco <div class="separator-stack"> veio para CIMA do <span>
+                return `
+                <div class="news-item">
+                    <div class="separator-stack">
+                        <span style="
+                            font-weight: 900; letter-spacing: 0.1em; white-space: nowrap;
+                            color: ${state.sepColor}; font-size: ${state.fontSize * 0.55}vh;
+                            text-shadow: none !important;
+                        ">● ${state.sepText} ●</span>
+                        <span style="
+                            margin-top: 0.5vh; font-weight: 700; white-space: nowrap;
+                            color: ${state.sepColor}; font-size: ${state.fontSize * 0.3}vh;
+                            opacity: 0.8; text-transform: uppercase;
+                            text-shadow: none !important;
+                        ">${item.category}</span>
+                    </div>
+
+                    <span ${clockAttr} style="
+                        padding-left: 1vh; padding-right: 1vh;
+                        font-weight: 700; line-height: 1; white-space: nowrap;
+                        color: ${state.textColor}; font-size: ${state.fontSize}vh;
+                        text-transform: ${state.isUppercase ? 'uppercase' : 'none'};
+                        text-shadow: none !important;
+                    ">${item.title}</span>
+                </div>`};
+            
+            const htmlContent = items.map(createItemHTML).join('');
+            track.innerHTML = htmlContent + htmlContent;
+        }
+
+
+        function getTimeString() {
+            const now = new Date();
+            let dateString = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+            dateString = dateString.charAt(0).toUpperCase() + dateString.slice(1);
+            return `${dateString} • ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+
+        setInterval(() => {
+            const clockElements = document.querySelectorAll('[data-clock-target="true"]');
+            if (clockElements.length > 0) {
+                const newTime = getTimeString();
+                clockElements.forEach(el => { if (el.textContent !== newTime) el.textContent = newTime; });
+            }
+        }, 1000);
+
+        function copyText(text, elementId, labelId) {
+            const el = document.getElementById(elementId);
+            const label = document.getElementById(labelId);
+            const originalLabel = label.innerText;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.focus(); textArea.select();
+            try {
+                document.execCommand('copy');
+                label.innerText = "COPIADO!"; label.style.color = "#4ade80";
+                el.classList.add('copied-feedback');
+                setTimeout(() => {
+                    label.innerText = originalLabel; label.style.color = "";
+                    el.classList.remove('copied-feedback');
+                }, 2000);
+            } catch (err) { console.error(err); }
+            document.body.removeChild(textArea);
+        }
+        document.getElementById('copy-whatsapp').addEventListener('click', () => copyText('(16) 9821-41433', 'copy-whatsapp', 'label-whatsapp'));
+        document.getElementById('copy-email').addEventListener('click', () => copyText('contatotiagohenrique@gmail.com', 'copy-email', 'label-email'));
+
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r\n|\n/); const result = [];
+            const splitRegex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim(); if (!line) continue;
+                const columns = line.split(splitRegex);
+                if (columns.length >= 2) {
+                    const cat = columns[0].replace(/^"|"$/g, '').trim().toLowerCase();
+                    const tit = columns[1].replace(/^"|"$/g, '').trim();
+                    if(tit) result.push({ category: cat, title: tit });
+                }
+            }
+            return result;
+        }
+
+        async function fetchNews() {
+            const btn = document.getElementById('btn-refresh');
+            const originalText = '<i data-lucide="refresh-cw" class="w-3 h-3"></i> Atualizar Agora';
+            if (!CONFIG_CSV_URL) { renderContent(); return; }
+            btn.innerHTML = '<i data-lucide="loader" class="animate-spin w-3 h-3"></i> Atualizando...';
+            btn.disabled = true;
+            try {
+                const res = await fetch(CONFIG_CSV_URL);
+                if (!res.ok) throw new Error("Erro Rede");
+                const textData = await res.text();
+                const parsedData = parseCSV(textData);
+                const activeFilters = [];
+                if(document.getElementById('check-nacional').checked) activeFilters.push('nacional');
+                if(document.getElementById('check-internacional').checked) activeFilters.push('internacional');
+                if(document.getElementById('check-esportes').checked) activeFilters.push('esportes');
+                if(document.getElementById('check-economia').checked) activeFilters.push('economia');
+                state.news = parsedData.filter(item => activeFilters.includes(item.category));
+            } catch(e) { 
+                console.error("Erro ao buscar notícias:", e);
+            }
+            renderContent();
+            btn.innerHTML = originalText; btn.disabled = false; lucide.createIcons();
+        }
+
+        // --- MONITOR DE CONECTIVIDADE ---
+        window.addEventListener('online', () => {
+            console.log("Conexão restabelecida. Atualizando...");
+            fetchNews();
+        });
+
+        function saveSettings() {
+            const settings = {
+                speed: parseFloat(document.getElementById('input-speed').value),
+                bgColor: document.getElementById('color-bg').value,
+                textColor: document.getElementById('color-text').value,
+                sepColor: document.getElementById('color-separator').value,
+                fontSize: parseFloat(document.getElementById('input-fontsize').value),
+                isUppercase: document.getElementById('check-uppercase').checked,
+                isRotated: state.isRotated,
+                btnPos: state.btnPos,
+                filters: {
+                    nacional: document.getElementById('check-nacional').checked,
+                    internacional: document.getElementById('check-internacional').checked,
+                    esportes: document.getElementById('check-esportes').checked,
+                    economia: document.getElementById('check-economia').checked,
+                    tempo: document.getElementById('check-tempo').checked
+                }
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        }
+
+        function loadSettings() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (!savedData) { applyBtnPos(); return; }
+            try {
+                const settings = JSON.parse(savedData);
+                document.getElementById('input-speed').value = settings.speed;
+                document.getElementById('color-bg').value = settings.bgColor;
+                document.getElementById('color-text').value = settings.textColor;
+                document.getElementById('color-separator').value = settings.sepColor;
+                document.getElementById('input-fontsize').value = settings.fontSize;
+                document.getElementById('check-uppercase').checked = settings.isUppercase;
+                if(settings.filters) {
+                    document.getElementById('check-nacional').checked = settings.filters.nacional;
+                    document.getElementById('check-internacional').checked = settings.filters.internacional;
+                    document.getElementById('check-esportes').checked = settings.filters.esportes;
+                    document.getElementById('check-economia').checked = settings.filters.economia;
+                    document.getElementById('check-tempo').checked = settings.filters.tempo;
+                }
+                state.speed = settings.speed; state.isRotated = !!settings.isRotated;
+                if (settings.btnPos) state.btnPos = settings.btnPos;
+                document.getElementById('speed-display').innerText = state.speed.toFixed(1) + 'x';
+                if (state.isRotated) container.classList.add('rotated-mode');
+                applyBtnPos();
+            } catch (e) { console.error(e); }
+        }
+
+        function applyBtnPos() {
+            btnOpen.style.top = state.btnPos.top; btnOpen.style.left = state.btnPos.left;
+            btnOpen.style.right = state.btnPos.right; btnOpen.style.bottom = state.btnPos.bottom;
+        }
+
+        document.getElementById('btn-toggle-filters').addEventListener('click', () => {
+            const el = document.getElementById('filters-content');
+            el.classList.toggle('open');
+            document.getElementById('icon-filters').style.transform = el.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+        });
+        document.getElementById('btn-toggle-contact').addEventListener('click', () => document.getElementById('contact-content').classList.toggle('open'));
+
+        const updateStyle = () => {
+            state.bgColor = document.getElementById('color-bg').value;
+            state.textColor = document.getElementById('color-text').value;
+            state.sepColor = document.getElementById('color-separator').value;
+            state.fontSize = document.getElementById('input-fontsize').value;
+            state.isUppercase = document.getElementById('check-uppercase').checked;
+            document.getElementById('fontsize-display').innerText = state.fontSize + 'vh';
+            document.documentElement.style.setProperty('--app-bg', state.bgColor);
+            renderContent(); saveSettings();
+        };
+
+        ['color-bg', 'color-text', 'color-separator', 'input-fontsize', 'check-uppercase'].forEach(id => document.getElementById(id).addEventListener('input', updateStyle));
+        document.getElementById('input-speed').addEventListener('input', (e) => {
+            state.speed = parseFloat(e.target.value);
+            document.getElementById('speed-display').innerText = state.speed.toFixed(1) + 'x';
+            saveSettings();
+        });
+        ['check-nacional', 'check-internacional', 'check-esportes', 'check-economia', 'check-tempo'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => { if(id !== 'check-tempo') fetchNews(); else renderContent(); saveSettings(); });
+        });
+        document.getElementById('btn-refresh').addEventListener('click', fetchNews);
+        document.getElementById('btn-fullscreen').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                if (appWrapper.requestFullscreen) appWrapper.requestFullscreen().catch(e=>console.log(e));
+                else if (appWrapper.webkitRequestFullscreen) appWrapper.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        });
+        document.getElementById('btn-rotate').addEventListener('click', () => {
+            state.isRotated = !state.isRotated; container.classList.toggle('rotated-mode', state.isRotated); saveSettings();
+        });
+        setInterval(() => { if(CONFIG_CSV_URL) fetchNews(); }, 300000);
+
+        // --- INICIALIZAÇÃO ---
+        loadSettings();
+        if(CONFIG_CSV_URL) fetchNews(); else renderContent();
+        updateStyle(); animate();
+        resetButtonVisibility(); // Inicia timer do botão invisível
+
+        // --- WAKE LOCK ---
+        let wakeLock = null;
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        setTimeout(requestWakeLock, 1000); 
+                    });
+                }
+            } catch (err) { console.log("Wake Lock Error"); }
+        }
+        requestWakeLock();
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock === null && document.visibilityState === 'visible') await requestWakeLock();
+        });
+        document.addEventListener('click', requestWakeLock);
+        document.addEventListener('touchstart', requestWakeLock, { passive: true });
+        
+    </script>
+</body>
+</html>
